@@ -1,0 +1,59 @@
+# Atlas Cloud Build pipeline.
+#
+# One trigger per service. This file is parameterized by ${_SERVICE} substitution.
+# Configure two triggers in Cloud Build:
+#   1. agents-on-push:    _SERVICE=coordinator|discovery|strategy|developer|...
+#   2. dashboard-on-push: _SERVICE=dashboard
+#
+# Both deploy to Cloud Run in us-central1.
+
+steps:
+  # ---- Build the container ----
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${SHORT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:latest'
+      - '-f'
+      - '${_DOCKERFILE}'
+      - '.'
+
+  # ---- Push to Artifact Registry ----
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}'
+
+  # ---- Deploy to Cloud Run ----
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'atlas-${_SERVICE}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${SHORT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--service-account=atlas-${_SERVICE}@${PROJECT_ID}.iam.gserviceaccount.com'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--max-instances=10'
+      - '--set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT_ID},ATLAS_ENV=${_ATLAS_ENV}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: 'us-central1'
+  _SERVICE: 'coordinator'
+  _DOCKERFILE: 'agents/coordinator/Dockerfile'
+  _ATLAS_ENV: 'staging'
+
+timeout: '1200s'

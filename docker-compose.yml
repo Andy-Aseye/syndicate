@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: atlas-postgres
+    environment:
+      POSTGRES_DB: atlas_dev
+      POSTGRES_USER: atlas_admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - atlas-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas_admin -d atlas_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: atlas-temporal
+    ports:
+      - "7233:7233"   # Temporal gRPC
+      - "8233:8233"   # Temporal Web UI
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=atlas_admin
+      - POSTGRES_PWD=password123
+      - POSTGRES_SEEDS=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - atlas-network
+
+volumes:
+  postgres_data:
+
+networks:
+  atlas-network:
+    driver: bridge

@@ -1,0 +1,59 @@
+// Atlas Firestore security rules.
+//
+// Tenant isolation: every document belongs to a tenantId (Clerk userId or orgId).
+// Reads and writes are scoped to the requester's tenant.
+//
+// Test in the Firestore Emulator:
+//   firebase emulators:start --only firestore
+//   firebase emulators:exec --only firestore "npm test"
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function tenantId() {
+      // Clerk publishes orgId (if user is in an org) else userId via custom claims.
+      return request.auth.token.org_id != null
+        ? request.auth.token.org_id
+        : request.auth.uid;
+    }
+
+    function isOwnerOfTenant(docTenantId) {
+      return isSignedIn() && tenantId() == docTenantId;
+    }
+
+    // ---- Engagements: the unit of work ----
+    match /engagements/{engagementId} {
+      allow read, update, delete: if isOwnerOfTenant(resource.data.tenantId);
+      allow create: if isSignedIn()
+        && request.resource.data.tenantId == tenantId();
+    }
+
+    // ---- Memory (per-engagement key/value store) ----
+    match /memory/{engagementId} {
+      allow read, write: if isSignedIn()
+        && exists(/databases/$(database)/documents/engagements/$(engagementId))
+        && isOwnerOfTenant(
+             get(/databases/$(database)/documents/engagements/$(engagementId)).data.tenantId
+           );
+    }
+
+    // ---- Agent traces (Atlas writes; users read) ----
+    match /traces/{traceId} {
+      allow read: if isSignedIn()
+        && isOwnerOfTenant(resource.data.tenantId);
+      allow write: if false; // only the server (admin SDK) can write traces
+    }
+
+    // ---- Default deny ----
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

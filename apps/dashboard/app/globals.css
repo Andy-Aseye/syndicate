@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #0a0e1f;
+    --card: #1a2147;
+    --cyan: #00d9ff;
+    --gold: #ffc857;
+  }
+  html,
+  body {
+    background: var(--bg);
+    color: #e8ecf4;
+  }
+  ::selection {
+    background: var(--cyan);
+    color: var(--bg);
+  }
+}

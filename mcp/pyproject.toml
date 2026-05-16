@@ -1,0 +1,22 @@
+[project]
+name = "agency-mcp"
+version = "0.1.0"
+description = "Atlas agency-operations MCP server — Shopify, Linear, Slack, Figma, Stripe tools"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+
+dependencies = [
+    "mcp>=1.2.0",
+    "ShopifyAPI>=12.7.0",
+    "stripe>=11.0.0",
+    "slack-sdk>=3.33.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.9.0",
+]
+
+[project.scripts]
+mcp-server-agency = "agency_mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

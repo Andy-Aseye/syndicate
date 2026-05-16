@@ -1,0 +1,75 @@
+[project]
+name = "atlas-agents"
+version = "0.1.0"
+description = "Atlas multi-agent system on Gemini Enterprise Agent Platform"
+authors = [{name = "Rubicx", email = "hello@rubicx.com"}]
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+readme = "README.md"
+
+dependencies = [
+    # Google Cloud + ADK (Gemini Enterprise Agent Platform)
+    # 1.17.0 is the minimum that ships AgentEngineSandboxCodeExecutor.
+    "google-adk>=1.17.0",
+    "google-genai>=0.7.0",                     # Gemini Live API + unified GenAI SDK
+    "google-cloud-aiplatform>=1.70.0",
+    "google-cloud-firestore>=2.20.0",
+    "google-cloud-bigquery>=3.27.0",
+    "google-cloud-secret-manager>=2.21.0",
+    "google-cloud-kms>=3.0.0",
+    "google-cloud-storage>=2.18.0",
+    # Note: the legacy `vertexai` PyPI shim hard-pins to old aiplatform versions.
+    # The `vertexai` namespace is now exposed natively by `google-cloud-aiplatform`
+    # (use `from vertexai import ...`), so we don't list the shim here.
+
+    # A2A protocol + MCP
+    "a2a-sdk>=1.0.3",                          # A2A Protocol Specification 1.0
+    "mcp>=1.2.0",                              # Model Context Protocol
+
+    # Durable Execution & Persistence
+    "temporalio>=1.5.0",
+    "asyncpg>=0.29.0",
+
+    # HTTP + async
+    "httpx>=0.27.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+
+    # External APIs Atlas calls
+    "ShopifyAPI>=12.7.0",                      # PyPI distribution name (imports as `shopify`)
+    "stripe>=11.0.0",
+    "slack-sdk>=3.33.0",
+
+    # Observability
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-exporter-gcp-trace>=1.7.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pm*", "shared*", "account*", "designer*", "strategy*", "developer*", "discovery*", "coordinator*"]
+exclude = ["tests*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
