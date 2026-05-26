@@ -4,10 +4,11 @@
 
 @layer base {
   :root {
-    --bg: #0a0e1f;
-    --card: #1a2147;
-    --cyan: #00d9ff;
-    --gold: #ffc857;
+    --bg: #141416;
+    --surface: #1c1c1e;
+    --card: #242426;
+    --primary: #765EEA;
+    --border: #333336;
   }
   html,
   body {
@@ -15,7 +16,7 @@
     color: #e8ecf4;
   }
   ::selection {
-    background: var(--cyan);
-    color: var(--bg);
+    background: var(--primary);
+    color: #ffffff;
   }
 }

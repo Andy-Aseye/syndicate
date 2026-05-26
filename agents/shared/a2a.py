@@ -32,7 +32,7 @@ class A2AClient:
     receiving agent can rehydrate context from Memory Bank.
     """
 
-    def __init__(self, timeout_s: float = 60.0) -> None:
+    def __init__(self, timeout_s: float = 180.0) -> None:
         self._http = httpx.AsyncClient(timeout=timeout_s)
 
     async def call(

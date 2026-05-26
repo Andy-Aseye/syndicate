@@ -70,18 +70,39 @@ class StrategyService:
 
             requirements = await self.memory.recall(engagement_id, "requirements")
             if not requirements:
+                # Fallback: accept requirements directly from the payload (e.g. when
+                # coordinator passes disc_output after a failed/mock discovery run).
+                requirements = {k: v for k, v in payload.items() if k != "engagement_id"}
+            if not requirements:
                 return AgentResult(
                     agent_name="strategy",
                     engagement_id=engagement_id,
                     status="error",
                     output={},
-                    error_message="No requirements found in memory — did Discovery run?",
+                    error_message="No requirements found in memory or payload.",
                 )
 
             response = await strategy_agent.run(
                 f"Requirements:\n{requirements}\n\nProduce the Plan."
             )
-            plan: Plan = response.output
+            plan: Plan | None = response.output
+
+            if plan is None:
+                log.warning(
+                    "strategy.extraction_failed",
+                    engagement_id=engagement_id,
+                    detail="LLM did not return parseable Plan",
+                )
+                return AgentResult(
+                    agent_name="strategy",
+                    engagement_id=engagement_id,
+                    status="error",
+                    output={},
+                    error_message=(
+                        "Failed to generate a structured plan from the requirements. "
+                        "The model response could not be parsed. Please try again."
+                    ),
+                )
 
             await self.memory.remember(engagement_id, "plan", plan.model_dump())
 

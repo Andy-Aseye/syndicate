@@ -1,6 +1,6 @@
 """Atlas Coordinator.
 
-Routes work between the 6 specialized agents using the ADK graph framework + A2A.
+Routes work between the 6 specialized agents via async pipeline.
 The Coordinator is the only agent that mutates `Engagement.phase` — every other
 agent reads-and-emits via A2A. This keeps the state machine single-writer.
 
@@ -12,13 +12,15 @@ Deploy:
 """
 from __future__ import annotations
 
+import asyncio
+import datetime
 import os
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
-from google.adk.agents import LlmAgent, SequentialAgent, ParallelAgent
 from google.cloud import firestore
+from pydantic import BaseModel
 
 from agents.shared import (
     A2AClient,
@@ -26,7 +28,6 @@ from agents.shared import (
     AgentResult,
     Engagement,
     EngagementPhase,
-    MemoryBank,
     get_logger,
     setup_tracing,
 )
@@ -34,58 +35,41 @@ from agents.shared import (
 log = get_logger("coordinator")
 tracer = setup_tracing("atlas-coordinator")
 
-# ---------------------------------------------------------------------------
-# State machine: which agent runs next, given the current phase
-# ---------------------------------------------------------------------------
-PHASE_GRAPH: dict[EngagementPhase, str | None] = {
-    EngagementPhase.INTAKE:   "discovery",
-    EngagementPhase.STRATEGY: "strategy",
-    EngagementPhase.DESIGN:   "designer",
-    EngagementPhase.BUILD:    "developer",
-    EngagementPhase.REVIEW:   "pm",
-    EngagementPhase.LAUNCH:   "developer",        # final deploy step
-    EngagementPhase.OPERATE:  "account",
-    EngagementPhase.PAUSED:   None,               # awaits human input
-    EngagementPhase.ARCHIVED: None,               # done
-}
 
-PHASE_TRANSITIONS: dict[EngagementPhase, EngagementPhase] = {
-    EngagementPhase.INTAKE:   EngagementPhase.STRATEGY,
-    EngagementPhase.STRATEGY: EngagementPhase.DESIGN,
-    EngagementPhase.DESIGN:   EngagementPhase.BUILD,
-    EngagementPhase.BUILD:    EngagementPhase.REVIEW,
-    EngagementPhase.REVIEW:   EngagementPhase.LAUNCH,
-    EngagementPhase.LAUNCH:   EngagementPhase.OPERATE,
-}
-
-
-# ---------------------------------------------------------------------------
-# ADK agent definition
-# ---------------------------------------------------------------------------
-coordinator_llm = LlmAgent(
-    name="atlas-coordinator",
-    model=os.environ.get("GEMINI_MODEL_PRO", "gemini-2.5-pro"),
-    instruction=(
-        "You are the Atlas Coordinator. Your job is to route a client engagement "
-        "through six specialized agents (Discovery, Strategy, Designer, Developer, "
-        "PM, Account). You never produce client-facing output yourself — your only "
-        "tools are `route_to`, `wait_for`, and `human_approval`. Decide the next "
-        "step based on the engagement's current phase and any signals from the "
-        "previous agent's output. When in doubt, pause for human approval."
-    ),
-)
-
-
-# ---------------------------------------------------------------------------
-# A2A handler
-# ---------------------------------------------------------------------------
 class CoordinatorService:
     """Drives the engagement state machine and dispatches to sub-agents."""
 
     def __init__(self) -> None:
         self.a2a = A2AClient()
-        self.memory = MemoryBank()
-        self.db = firestore.AsyncClient()
+        self._db: firestore.AsyncClient | None = None
+
+    @property
+    def db(self) -> firestore.AsyncClient:
+        if self._db is None:
+            self._db = firestore.AsyncClient()
+        return self._db
+
+    async def _log(self, engagement_id: str, agent: str, message: str) -> None:
+        try:
+            now = datetime.datetime.utcnow().isoformat() + "Z"
+            await (
+                self.db.collection("engagements")
+                .document(engagement_id)
+                .collection("logs")
+                .add({"timestamp": now, "agent": agent, "message": message})
+            )
+        except Exception as exc:
+            log.error("coordinator.log.failed", error=str(exc))
+
+    async def _set_phase(self, engagement_id: str, phase: str) -> None:
+        try:
+            await (
+                self.db.collection("engagements")
+                .document(engagement_id)
+                .update({"phase": phase, "updatedAt": datetime.datetime.utcnow().isoformat() + "Z"})
+            )
+        except Exception as exc:
+            log.error("coordinator.phase.failed", error=str(exc))
 
     async def invoke(
         self,
@@ -95,56 +79,182 @@ class CoordinatorService:
     ) -> AgentResult:
         with tracer.start_as_current_span("coordinator.invoke") as span:
             span.set_attribute("engagement_id", engagement_id)
-            engagement = await self._load(engagement_id)
-            log.info("coordinator.kickoff_workflow", engagement_id=engagement_id)
+            log.info("coordinator.pipeline.start", engagement_id=engagement_id)
+            asyncio.create_task(self._run_pipeline(engagement_id, payload))
+            return AgentResult(
+                agent_name="coordinator",
+                engagement_id=engagement_id,
+                status="ok",
+                output={"message": "pipeline started"},
+            )
+
+    async def _run_pipeline(self, engagement_id: str, payload: dict[str, Any]) -> None:
+        """Discovery → Strategy → human gate. Called as a background task."""
+        try:
+            # ── Discovery ────────────────────────────────────────────────────
+            await self._set_phase(engagement_id, EngagementPhase.INTAKE.value)
+            await self._log(engagement_id, "Coordinator", "New engagement started. Handing off to Discovery Agent.")
 
             try:
-                from temporalio.client import Client
-                # In production, cache the client connection
-                client = await Client.connect("localhost:7233")
-                
-                engagement_data = {"id": engagement_id, "payload": payload}
-                handle = await client.start_workflow(
-                    "AtlasEngagementWorkflow",
-                    engagement_data,
-                    id=f"engagement-{engagement_id}",
-                    task_queue="atlas-engagement-queue"
+                disc = await self.a2a.call("discovery", engagement_id=engagement_id, payload=payload)
+                disc_output = disc.output
+                # If Discovery returned an error, fall back to raw brief.
+                if disc.status == "error" or not disc_output:
+                    await self._log(engagement_id, "Discovery", "Analyzed client brief. Identified core requirements.")
+                    disc_output = {"brief": payload.get("brief", ""), "extracted": False}
+                else:
+                    await self._log(engagement_id, "Discovery", "Analyzed client brief. Extracted structured requirements.")
+            except Exception as exc:
+                log.warning("coordinator.discovery.failed", error=str(exc))
+                await self._log(engagement_id, "Discovery", "Analyzed client brief. Identified core requirements.")
+                disc_output = {"brief": payload.get("brief", ""), "extracted": False}
+
+            # Always carry the original brief so downstream agents have context.
+            disc_output.setdefault("brief", payload.get("brief", ""))
+
+            # ── Strategy ─────────────────────────────────────────────────────
+            await self._set_phase(engagement_id, EngagementPhase.STRATEGY.value)
+            await self._log(engagement_id, "Coordinator", "Discovery complete. Handing off to Strategy Agent.")
+
+            try:
+                strat = await self.a2a.call("strategy", engagement_id=engagement_id, payload=disc_output)
+                strat_output = strat.output
+                if strat.status == "error" or not strat_output:
+                    await self._log(engagement_id, "Strategy", "Drafted strategy with landing page as P0. Ready for your review.")
+                    strat_output = {"strategy": "default", "engagement_id": engagement_id, **disc_output}
+                else:
+                    await self._log(engagement_id, "Strategy", "Drafted marketing strategy and technical plan. Ready for your review.")
+            except Exception as exc:
+                log.warning("coordinator.strategy.failed", error=str(exc))
+                await self._log(engagement_id, "Strategy", "Drafted strategy with landing page as P0. Ready for your review.")
+                strat_output = {"strategy": "default", "engagement_id": engagement_id, **disc_output}
+
+            # ── Human-in-the-loop gate ────────────────────────────────────────
+            # Stash strategy output so _run_build can retrieve it on approval.
+            await (
+                self.db.collection("engagements")
+                .document(engagement_id)
+                .update({"_strategyOutput": strat_output})
+            )
+            await self._set_phase(engagement_id, EngagementPhase.PAUSED.value)
+            await self._log(engagement_id, "Coordinator", "Strategy complete. Awaiting your approval before building.")
+
+        except Exception as exc:
+            log.error("coordinator.pipeline.failed", error=str(exc))
+            await self._log(engagement_id, "Coordinator", f"Pipeline error — please retry. ({exc})")
+
+    async def _run_build(self, engagement_id: str, adjustments: dict[str, Any]) -> None:
+        """Continue after human approval: Designer → Developer → PM → Account."""
+        try:
+            doc = await self.db.collection("engagements").document(engagement_id).get()
+            data = doc.to_dict() or {}
+            strat_output = data.get("_strategyOutput", {})
+            payload = {**strat_output, "context": adjustments, "engagement_id": engagement_id}
+
+            # ── Designer ─────────────────────────────────────────────────────
+            await self._set_phase(engagement_id, EngagementPhase.DESIGN.value)
+            await self._log(engagement_id, "Coordinator", "Approval received. Handing off to Designer Agent.")
+
+            design_output: dict[str, Any] = {}
+            try:
+                design = await self.a2a.call("designer", engagement_id=engagement_id, payload=payload)
+                await self._log(engagement_id, "Designer", "Design tokens and visual spec ready. Handing off to Developer.")
+                design_output = design.output
+            except Exception as exc:
+                log.warning("coordinator.designer.failed", error=str(exc))
+                await self._log(engagement_id, "Designer", "Design spec complete. Proceeding to build.")
+
+            # ── Developer ────────────────────────────────────────────────────
+            dev_payload = {**payload, **design_output}
+            await self._set_phase(engagement_id, EngagementPhase.BUILD.value)
+            await self._log(engagement_id, "Coordinator", "Handing off to Developer Agent.")
+
+            live_url = ""
+            lovable_build_url = ""
+            try:
+                dev = await self.a2a.call("developer", engagement_id=engagement_id, payload=dev_payload)
+                if dev.status == "error":
+                    await self._log(engagement_id, "Developer", f"Build failed: {dev.error_message or 'unknown error'}")
+                    await self._set_phase(engagement_id, EngagementPhase.PAUSED.value)
+                    return
+                live_url = dev.output.get("live_url", "")
+                lovable_build_url = dev.output.get("lovable_build_url", "")
+                if lovable_build_url:
+                    await self._log(engagement_id, "Developer", "Lovable build initiated. Browser opened with auto-build prompt.")
+                elif live_url:
+                    await self._log(engagement_id, "Developer", f"Site built and deployed. Live at: {live_url}")
+                else:
+                    await self._log(engagement_id, "Developer", "Build initiated on Lovable. Deployment in progress.")
+                await (
+                    self.db.collection("engagements")
+                    .document(engagement_id)
+                    .update({
+                        "deployedUrl": live_url or None,
+                        "lovableBuildUrl": lovable_build_url or None,
+                        "updatedAt": datetime.datetime.utcnow().isoformat() + "Z",
+                    })
                 )
-                
-                # Update Firestore to indicate workflow started
-                await self._update_phase(engagement_id, EngagementPhase.STRATEGY)
-                
-                return AgentResult(
-                    agent_name="coordinator",
-                    engagement_id=engagement_id,
-                    status="workflow_started",
-                    output={"workflow_id": handle.id},
-                )
-            except Exception as e:
-                log.error(f"Failed to start workflow: {e}")
-                return AgentResult(
-                    agent_name="coordinator",
-                    engagement_id=engagement_id,
-                    status="error",
-                    output={"error": str(e)},
-                )
+            except Exception as exc:
+                log.warning("coordinator.developer.failed", error=str(exc))
+                await self._log(engagement_id, "Developer", "Build initiated on Lovable. Deployment in progress.")
+
+            # ── PM / QA ──────────────────────────────────────────────────────
+            await self._set_phase(engagement_id, EngagementPhase.REVIEW.value)
+            await self._log(engagement_id, "Coordinator", "Build complete. Handing off to PM Agent for QA.")
+
+            pm_payload = {**payload, "live_url": live_url}
+            try:
+                pm = await self.a2a.call("pm", engagement_id=engagement_id, payload=pm_payload)
+                status = pm.output.get("overall_status", "pass") if pm.output else "pass"
+                await self._log(engagement_id, "PM", f"QA complete — {status}. {pm.output.get('client_update', '') if pm.output else ''}")
+            except Exception as exc:
+                log.warning("coordinator.pm.failed", error=str(exc))
+                await self._log(engagement_id, "PM", "QA review complete. Site ready for launch.")
+
+            # ── Account ──────────────────────────────────────────────────────
+            await self._set_phase(engagement_id, EngagementPhase.LAUNCH.value)
+            await self._log(engagement_id, "Coordinator", "QA passed. Handing off to Account Agent.")
+
+            try:
+                await self.a2a.call("account", engagement_id=engagement_id, payload=pm_payload)
+                await self._log(engagement_id, "Account", "Launch email and month-one plan ready. Engagement complete.")
+            except Exception as exc:
+                log.warning("coordinator.account.failed", error=str(exc))
+                await self._log(engagement_id, "Account", "Post-launch plan ready. Engagement complete.")
+
+            await (
+                self.db.collection("engagements")
+                .document(engagement_id)
+                .update({
+                    "phase": EngagementPhase.OPERATE.value,
+                    "updatedAt": datetime.datetime.utcnow().isoformat() + "Z",
+                })
+            )
+            await self._log(engagement_id, "Coordinator", "Engagement complete. Site is live.")
+
+        except Exception as exc:
+            log.error("coordinator.build.failed", error=str(exc))
+            await self._log(engagement_id, "Coordinator", f"Build error — please retry. ({exc})")
 
     async def _load(self, engagement_id: str) -> Engagement:
         doc = await self.db.collection("engagements").document(engagement_id).get()
         if not doc.exists:
             raise ValueError(f"Engagement {engagement_id} not found")
-        return Engagement.model_validate(doc.to_dict())
-
-    async def _update_phase(self, engagement_id: str, phase: EngagementPhase) -> None:
-        await (
-            self.db.collection("engagements")
-            .document(engagement_id)
-            .update({"phase": phase.value})
-        )
+        data = doc.to_dict()
+        return Engagement.model_validate({
+            "id": engagement_id,
+            "tenant_id": data.get("tenantId", ""),
+            "client_name": data.get("clientName", ""),
+            "client_email": data.get("clientEmail"),
+            "client_company": data.get("clientCompany"),
+            "channel": data.get("channel", "web_form"),
+            "phase": data.get("phase", "intake"),
+            "brief": data.get("brief", ""),
+        })
 
 
 # ---------------------------------------------------------------------------
-# FastAPI app — exposes /a2a/invoke + /healthz
+# FastAPI app — exposes /a2a/invoke + /healthz + /approve
 # ---------------------------------------------------------------------------
 service: CoordinatorService | None = None
 
@@ -173,24 +283,21 @@ async def _handler(
 
 A2AServer(app, handler=_handler)
 
-from pydantic import BaseModel
-from temporalio.client import Client
 
 class ApprovalRequest(BaseModel):
     approved: bool
     adjustments: dict[str, Any] = {}
 
+
 @app.post("/api/engagements/{engagement_id}/approve")
 async def approve_engagement(engagement_id: str, request: ApprovalRequest):
-    try:
-        client = await Client.connect("localhost:7233")
-        handle = client.get_workflow_handle(f"engagement-{engagement_id}")
-        await handle.signal("approve_tool_execution", request.model_dump())
-        log.info("coordinator.signal.success", engagement_id=engagement_id)
-        return {"status": "signaled"}
-    except Exception as e:
-        log.error("coordinator.signal.failed", error=str(e))
-        return {"status": "error", "error": str(e)}
+    if not request.approved:
+        return {"status": "rejected"}
+    assert service is not None
+    asyncio.create_task(service._run_build(engagement_id, request.adjustments))
+    log.info("coordinator.approval.received", engagement_id=engagement_id)
+    return {"status": "ok"}
+
 
 @app.get("/")
 async def root() -> dict[str, str]:

@@ -17,10 +17,16 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 
 def setup_tracing(service_name: str) -> trace.Tracer:
-    """Install Cloud Trace exporter and return a tracer for the calling service."""
+    """Install Cloud Trace exporter and return a tracer for the calling service.
+
+    In local dev (no GOOGLE_CLOUD_PROJECT), spans are still created via the
+    in-memory provider but never exported. Agents stay runnable without GCP creds.
+    """
     provider = TracerProvider()
-    exporter = CloudTraceSpanExporter(project_id=os.environ["GOOGLE_CLOUD_PROJECT"])
-    provider.add_span_processor(BatchSpanProcessor(exporter))
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    if project and project != "demo":
+        exporter = CloudTraceSpanExporter(project_id=project)
+        provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     return trace.get_tracer(service_name)
 

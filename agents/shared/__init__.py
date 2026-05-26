@@ -1,4 +1,7 @@
 """Shared utilities for Atlas agents: A2A, memory, observability, types."""
+from dotenv import load_dotenv
+load_dotenv()
+
 from .types import Engagement, EngagementPhase, AgentResult
 from .memory import MemoryBank
 from .a2a import A2AClient, A2AServer
@@ -14,3 +17,87 @@ __all__ = [
     "setup_tracing",
     "get_logger",
 ]
+
+# ---------------------------------------------------------------------------
+# Polyfill for ADK Agent.run()
+# Google ADK uses a `Runner` architecture, but for simple agent invocations
+# it's convenient to have a direct `.run()` method. This monkey-patches
+# BaseAgent so existing code works without modification.
+#
+# ADK 1.33.0: Events are `google.adk.events.Event` with:
+#   - event.content.parts[].text  → raw LLM text (JSON when output_schema set)
+#   - event.actions.state_delta   → parsed output (only if output_key is set)
+#   - event.is_final_response()   → True on the last model response
+# ---------------------------------------------------------------------------
+import json
+import logging
+import uuid
+
+from google.adk.agents.base_agent import BaseAgent
+from google.adk.runners import Runner
+from google.adk.sessions.in_memory_session_service import InMemorySessionService
+from google.genai import types
+
+_polyfill_log = logging.getLogger("atlas.polyfill")
+
+
+class _RunResult:
+    def __init__(self, output):
+        self.output = output
+
+
+async def _agent_run(self, prompt: str):
+    session_svc = InMemorySessionService()
+    session_id = str(uuid.uuid4())
+    await session_svc.create_session(
+        app_name="atlas", user_id="system", session_id=session_id
+    )
+
+    runner = Runner(app_name="atlas", agent=self, session_service=session_svc)
+    msg = types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
+
+    output = None
+    last_text = None
+
+    async for event in runner.run_async(
+        user_id="system", session_id=session_id, new_message=msg
+    ):
+        # 1. Check state_delta (populated when output_key is set on the agent)
+        if event.actions and event.actions.state_delta:
+            for _key, val in event.actions.state_delta.items():
+                output = val
+
+        # 2. Capture text from content parts (skip thought/reasoning tokens)
+        if event.content and event.content.parts:
+            text = "".join(
+                p.text
+                for p in event.content.parts
+                if p.text and not getattr(p, "thought", False)
+            )
+            if text.strip():
+                last_text = text
+
+    # If we got output from state_delta, use it directly.
+    # Otherwise, parse the last text response against output_schema.
+    if output is None and last_text is not None:
+        schema = getattr(self, "output_schema", None)
+        if schema is not None:
+            try:
+                data = json.loads(last_text)
+                output = schema.model_validate(data)
+            except (json.JSONDecodeError, Exception) as exc:
+                _polyfill_log.warning(
+                    "Failed to parse LLM output as %s: %s — raw text: %.200s",
+                    schema.__name__,
+                    exc,
+                    last_text,
+                )
+                output = None
+        else:
+            output = last_text
+
+    return _RunResult(output=output)
+
+
+BaseAgent.run = _agent_run
+

@@ -1,0 +1,9 @@
+{
+  "firestore": {
+    "rules": "infra/firestore.rules"
+  },
+  "emulators": {
+    "firestore": { "port": 8089 },
+    "ui": { "enabled": true, "port": 4000 }
+  }
+}

@@ -30,10 +30,15 @@ let initialized = false;
 
 function db() {
   if (!initialized && getApps().length === 0) {
+    if (process.env.NODE_ENV === 'development') {
+      process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8089';
+    }
+    
     // Cloud Run / GKE: ADC works automatically. Local dev: GOOGLE_APPLICATION_CREDENTIALS.
     initializeApp({
       projectId: process.env.GOOGLE_CLOUD_PROJECT,
     });
+    getFirestore().settings({ ignoreUndefinedProperties: true });
     initialized = true;
   }
   return getFirestore();
@@ -57,7 +62,7 @@ export async function getEngagement(
   if (!doc.exists) return null;
   const data = doc.data() as Engagement;
   if (data.tenantId !== tenantId) return null; // tenant isolation
-  return { id: doc.id, ...data };
+  return { ...data, id: doc.id };
 }
 
 export async function createEngagement(

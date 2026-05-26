@@ -1,12 +1,11 @@
 """Developer agent.
 
-Reads the Plan produced by Strategy, builds a Lovable project via Build-with-URL,
-polls until ready, optionally deploys to a custom domain, and writes the
-artifact references back to Memory Bank.
+Reads the Plan produced by Strategy (and enriched by Designer), assembles a
+comprehensive Lovable prompt, and triggers a build via Build-with-URL.
 
-Intentionally thin: most of the engineering judgment lives in the Strategy
-agent's `build_scope_lovable_prompt`. Developer's job is to execute reliably
-and capture results.
+The Developer agent is intentionally thin — most of the engineering judgment
+lives in Strategy's `build_scope_lovable_prompt` and Designer's design tokens.
+Developer's job is to assemble, validate, execute, and capture results.
 """
 from __future__ import annotations
 
@@ -29,6 +28,66 @@ log = get_logger("developer")
 tracer = setup_tracing("atlas-developer")
 
 
+def _assemble_lovable_prompt(plan: dict[str, Any], design: dict[str, Any]) -> str:
+    """Combine Strategy plan + Designer tokens into a single Lovable prompt."""
+    parts: list[str] = []
+
+    # Core build prompt from Strategy
+    build_prompt = plan.get("build_scope_lovable_prompt", "")
+    if build_prompt:
+        parts.append(build_prompt)
+
+    # Positioning and target persona for context
+    positioning = plan.get("positioning", "")
+    if positioning and positioning not in build_prompt:
+        parts.append(f"\n## Positioning\n{positioning}")
+
+    target = plan.get("target_persona", "")
+    if target and target not in build_prompt:
+        parts.append(f"\n## Target User\n{target}")
+
+    # Information architecture
+    ia = plan.get("information_architecture", [])
+    if ia:
+        pages = "\n".join(f"- {page}" for page in ia)
+        parts.append(f"\n## Pages\n{pages}")
+
+    # Key components
+    components = plan.get("key_components", [])
+    if components:
+        comp_list = "\n".join(f"- {c}" for c in components)
+        parts.append(f"\n## Key Components\n{comp_list}")
+
+    # Visual direction from Strategy
+    visual = plan.get("visual_direction", "")
+    if visual:
+        parts.append(f"\n## Visual Direction\n{visual}")
+
+    # Designer's design tokens (if available)
+    if design:
+        design_section = []
+        palette = design.get("palette") or design.get("color_palette")
+        if palette:
+            design_section.append(f"Color palette: {palette}")
+        typography = design.get("typography") or design.get("type_scale")
+        if typography:
+            design_section.append(f"Typography: {typography}")
+        style = design.get("style") or design.get("visual_style")
+        if style:
+            design_section.append(f"Style: {style}")
+        if design_section:
+            parts.append("\n## Design Tokens\n" + "\n".join(design_section))
+
+    # Human adjustments (if any)
+    adjustments = plan.get("context", {})
+    if isinstance(adjustments, dict):
+        instructions = adjustments.get("instructions", "")
+        if instructions:
+            parts.append(f"\n## Additional Requirements\n{instructions}")
+
+    return "\n".join(parts).strip()
+
+
 class DeveloperService:
     def __init__(self) -> None:
         self.memory = MemoryBank()
@@ -43,56 +102,33 @@ class DeveloperService:
         with tracer.start_as_current_span("developer.invoke") as span:
             span.set_attribute("engagement_id", engagement_id)
 
+            # Try to get plan from Memory Bank first, fall back to payload
             plan = await self.memory.recall(engagement_id, "plan")
+            if not plan:
+                # Use payload directly as plan (coordinator passes strategy output)
+                plan = payload
+
             if not plan:
                 return AgentResult(
                     agent_name="developer",
                     engagement_id=engagement_id,
                     status="error",
                     output={},
-                    error_message="No plan in memory — Strategy hasn't run.",
+                    error_message="No plan available — Strategy hasn't run.",
                 )
 
-            prompt = plan["build_scope_lovable_prompt"]
+            # Get design tokens (may be empty if Designer failed)
+            design = await self.memory.recall(engagement_id, "design") or {}
+
+            # Assemble the full Lovable prompt
+            prompt = _assemble_lovable_prompt(plan, design)
+
+            if not prompt.strip():
+                # Fallback: use the raw brief if nothing else is available
+                brief = plan.get("brief", payload.get("brief", ""))
+                prompt = f"Build a modern, responsive website for the following brief:\n\n{brief}"
+
             app_name = (plan.get("positioning", "")[:60] or "atlas-build").strip()
-
-            log.info("developer.sandbox.start", engagement_id=engagement_id)
-            # Validate any generated setup scripts (e.g. DB schema migrations) in the
-            # Agent Engine Sandbox before they get folded into the Lovable prompt.
-            # The sandbox executor is wired into the LLM agent (`code_executor=...`);
-            # the agent itself decides when to invoke it. We trigger it here by asking
-            # the validator agent to run the setup script.
-            sandbox_resource = os.environ.get("ATLAS_SANDBOX_RESOURCE_NAME")
-            try:
-                from google.adk.code_executors.agent_engine_sandbox_code_executor import (
-                    AgentEngineSandboxCodeExecutor,
-                )
-                from google.adk.agents.llm_agent import Agent
-
-                validator = Agent(
-                    name="developer-validator",
-                    model=os.environ.get("GEMINI_MODEL_FLASH", "gemini-2.5-flash"),
-                    instruction=(
-                        "You validate setup scripts in a sandbox. Execute the script "
-                        "exactly as written and return the output verbatim."
-                    ),
-                    code_executor=AgentEngineSandboxCodeExecutor(
-                        sandbox_resource_name=sandbox_resource,
-                    ) if sandbox_resource else AgentEngineSandboxCodeExecutor(),
-                )
-                setup_script = plan.get(
-                    "setup_script", "print('Secure validation complete.')"
-                )
-                result = await validator.run(setup_script)
-                log.info("developer.sandbox.success", result=result.output)
-                prompt += f"\n\nAtlas Sandbox Output: {result.output}"
-            except ImportError:
-                log.warning(
-                    "developer.sandbox.skipped",
-                    reason="google-adk<1.17 — sandbox executor not available",
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.error("developer.sandbox.failed", error=str(exc))
 
             log.info(
                 "developer.lovable_build.start",
@@ -100,9 +136,14 @@ class DeveloperService:
                 prompt_chars=len(prompt),
             )
 
+            # Generate Build-with-URL and auto-open in browser
             try:
-                build = await self.lovable.build(prompt, app_name=app_name)
-            except Exception as exc:  # noqa: BLE001
+                build = await self.lovable.build(
+                    prompt,
+                    app_name=app_name,
+                    auto_open=True,
+                )
+            except Exception as exc:
                 log.exception("developer.lovable_build.failed", error=str(exc))
                 return AgentResult(
                     agent_name="developer",
@@ -112,27 +153,22 @@ class DeveloperService:
                     error_message=f"Lovable build failed: {exc}",
                 )
 
-            # Deploy (no custom domain yet — set during W2 when we connect Shopify).
-            try:
-                live_url = await self.lovable.deploy(build.project_id)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("developer.lovable_deploy.failed", error=str(exc))
-                live_url = build.preview_url or build.project_url
-
+            # Store the build URL in Memory Bank
             await self.memory.remember(
                 engagement_id,
                 "build",
                 {
-                    "lovable_project_id": build.project_id,
-                    "lovable_project_url": build.project_url,
-                    "live_url": live_url,
+                    "lovable_build_url": build.build_url,
+                    "lovable_prompt_chars": len(prompt),
+                    "app_name": build.app_name,
                 },
             )
 
             log.info(
                 "developer.lovable_build.complete",
                 engagement_id=engagement_id,
-                live_url=live_url,
+                build_url=build.build_url[:100],
+                opened_in_browser=build.opened_in_browser,
             )
 
             return AgentResult(
@@ -140,9 +176,10 @@ class DeveloperService:
                 engagement_id=engagement_id,
                 status="ok",
                 output={
-                    "lovable_project_id": build.project_id,
-                    "live_url": live_url,
-                    "preview_url": build.preview_url,
+                    "lovable_build_url": build.build_url,
+                    "live_url": "",  # Populated after Lovable finishes building
+                    "app_name": build.app_name,
+                    "prompt_chars": len(prompt),
                 },
                 next_agent="pm",
                 requires_human_approval=False,

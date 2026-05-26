@@ -47,14 +47,14 @@ class Requirements(BaseModel):
 # ADK agent — handles requirement extraction from the transcript
 # ---------------------------------------------------------------------------
 extraction_agent = LlmAgent(
-    name="discovery-extractor",
+    name="discovery_extractor",
     model=os.environ.get("GEMINI_MODEL_PRO", "gemini-2.5-pro"),
     instruction=(
         "You are the Discovery agent for Atlas, an AI-powered digital agency operator. "
-        "You will be given a transcript of a voice intake call between Atlas and a "
-        "new client. Extract the structured Requirements schema verbatim. "
-        "Do not hallucinate fields — if the client didn't mention something, leave it null "
-        "and add it to `open_questions`. Be conservative."
+        "You will be given a client brief or voice transcript. Extract the structured "
+        "Requirements schema. Do not hallucinate fields — if the client didn't mention "
+        "something, leave it null and add it to `open_questions`. Be conservative. "
+        "A brief may be short; that is fine — extract what you can and flag gaps in open_questions."
     ),
     output_schema=Requirements,
 )
@@ -92,9 +92,8 @@ class DiscoveryService:
         with tracer.start_as_current_span("discovery.invoke") as span:
             span.set_attribute("engagement_id", engagement_id)
 
-            # Either we got a transcript directly (W1 fallback), or we run the
-            # voice call (W2+).
-            transcript = payload.get("transcript")
+            # Accept transcript (voice/paste), brief (web form), or phone (Gemini Live).
+            transcript = payload.get("transcript") or payload.get("brief")
             if not transcript and payload.get("client_phone"):
                 transcript = await run_voice_intake(
                     payload["client_phone"], engagement_id
@@ -105,12 +104,29 @@ class DiscoveryService:
                     engagement_id=engagement_id,
                     status="needs_input",
                     output={},
-                    error_message="No transcript or phone provided.",
+                    error_message="No transcript, brief, or phone provided.",
                 )
 
             # Extract structured requirements.
             response = await extraction_agent.run(transcript)
-            requirements: Requirements = response.output
+            requirements: Requirements | None = response.output
+
+            if requirements is None:
+                log.warning(
+                    "discovery.extraction_failed",
+                    engagement_id=engagement_id,
+                    detail="LLM did not return parseable Requirements",
+                )
+                return AgentResult(
+                    agent_name="discovery",
+                    engagement_id=engagement_id,
+                    status="error",
+                    output={},
+                    error_message=(
+                        "Failed to extract structured requirements from the brief. "
+                        "The model response could not be parsed. Please try again."
+                    ),
+                )
 
             # Persist into Memory Bank for downstream agents.
             await self.memory.remember(

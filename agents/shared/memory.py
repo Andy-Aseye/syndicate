@@ -30,41 +30,44 @@ class MemoryBank:
     """
 
     def __init__(self, instance: str | None = None) -> None:
-        self.instance = instance or os.environ["MEMORY_BANK_INSTANCE"]
+        # Local dev runs without Memory Bank — instance may be unset; we fall
+        # back to Firestore in that case.
+        self.instance = instance or os.environ.get("MEMORY_BANK_INSTANCE", "")
+        self._mode = "memory_bank" if (_MEMORY_BANK_AVAILABLE and self.instance) else "firestore_fallback"
+        self._client: Any = None  # lazy-init on first use so app boots without ADC
 
-        if _MEMORY_BANK_AVAILABLE:
+    def _ensure_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        if self._mode == "memory_bank":
             self._client = memory_bank.Client(instance=self.instance)
-            self._mode = "memory_bank"
         else:
             from google.cloud import firestore  # local import to avoid hard dep
-            self._client = firestore.Client()
-            self._mode = "firestore_fallback"
+            # Use AsyncClient so Firestore I/O is non-blocking in async agents.
+            self._client = firestore.AsyncClient()
+        return self._client
 
     async def remember(self, engagement_id: str, key: str, value: Any) -> None:
         """Persist a fact about an engagement for future agent recall."""
+        client = self._ensure_client()
         if self._mode == "memory_bank":
-            await self._client.set(
-                namespace=f"engagement:{engagement_id}",
-                key=key,
-                value=value,
-            )
+            await client.set(namespace=f"engagement:{engagement_id}", key=key, value=value)
         else:
-            doc = self._client.collection("memory").document(engagement_id)
-            doc.set({key: value}, merge=True)
+            doc = client.collection("memory").document(engagement_id)
+            await doc.set({key: value}, merge=True)
 
     async def recall(self, engagement_id: str, key: str) -> Any:
         """Retrieve a previously-remembered fact."""
+        client = self._ensure_client()
         if self._mode == "memory_bank":
-            return await self._client.get(
-                namespace=f"engagement:{engagement_id}",
-                key=key,
-            )
-        doc = self._client.collection("memory").document(engagement_id).get()
+            return await client.get(namespace=f"engagement:{engagement_id}", key=key)
+        doc = await client.collection("memory").document(engagement_id).get()
         return doc.to_dict().get(key) if doc.exists else None
 
     async def recall_all(self, engagement_id: str) -> dict[str, Any]:
         """Pull every fact we know about this engagement."""
+        client = self._ensure_client()
         if self._mode == "memory_bank":
-            return await self._client.list(namespace=f"engagement:{engagement_id}")
-        doc = self._client.collection("memory").document(engagement_id).get()
+            return await client.list(namespace=f"engagement:{engagement_id}")
+        doc = await client.collection("memory").document(engagement_id).get()
         return doc.to_dict() or {}

@@ -1,23 +1,46 @@
 """Project Manager agent.
 
-After Developer ships a build, PM agent:
-  1. Reviews the live URL (Lighthouse, broken links, accessibility)
-  2. Drafts a client-facing update for Slack
-  3. Files any follow-up issues in Linear
-  4. Schedules QA checkpoints
-
-W2 deliverable — stub for now.
+After Developer ships a build, PM agent reviews the site against the strategy
+plan, flags P0 issues, and drafts a client-facing update.
 """
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from google.adk.agents import LlmAgent
+from pydantic import BaseModel
 
-from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger
+from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger, setup_tracing
 
 log = get_logger("pm")
+tracer = setup_tracing("atlas-pm")
+
+
+class QAReport(BaseModel):
+    overall_status: str          # "pass" | "needs_fixes" | "blocked"
+    checklist: list[str]         # items reviewed, each prefixed with ✅ or ❌
+    priority_fixes: list[str]    # P0 issues before client delivery
+    client_update: str           # Slack-ready message the account manager can send
+    next_steps: list[str]        # what happens after QA sign-off
+
+
+pm_agent = LlmAgent(
+    name="pm",
+    model=os.environ.get("GEMINI_MODEL_FLASH", "gemini-2.5-flash"),
+    instruction=(
+        "You are the Project Manager agent for Atlas, an AI-powered digital agency. "
+        "Given a client brief, strategy plan, and live site URL, produce a QA report. "
+        "Simulate a thorough review: check that the IA matches the strategy, CTAs are "
+        "clear, visual direction is consistent, and the site is launch-ready. Be specific "
+        "— reference actual pages and components from the strategy. "
+        "Write `client_update` as a friendly, professional Slack message the human "
+        "account manager can copy-paste directly to the client."
+    ),
+    output_schema=QAReport,
+)
 
 
 class PMService:
@@ -30,15 +53,44 @@ class PMService:
         payload: dict[str, Any],
         require_approval: bool = False,
     ) -> AgentResult:
-        # TODO (Andy, W2 Day 3): wire Slack + Linear via agency-mcp tools.
-        log.info("pm.stub", engagement_id=engagement_id)
-        return AgentResult(
-            agent_name="pm",
-            engagement_id=engagement_id,
-            status="ok",
-            output={"stubbed": True, "todo": "wire Slack + Linear in W2"},
-            next_agent="account",
-        )
+        with tracer.start_as_current_span("pm.invoke") as span:
+            span.set_attribute("engagement_id", engagement_id)
+
+            plan = await self.memory.recall(engagement_id, "plan")
+            if not plan:
+                plan = {k: v for k, v in payload.items() if k != "engagement_id"}
+
+            live_url = payload.get("live_url") or payload.get("deployedUrl", "")
+            brief = payload.get("brief", "")
+
+            response = await pm_agent.run(
+                f"Client brief: {brief}\n\n"
+                f"Strategy plan: {plan}\n\n"
+                f"Live site URL: {live_url or '(not yet deployed)'}\n\n"
+                "Produce a detailed QA report."
+            )
+
+            if response.output is None:
+                log.warning("pm.no_output", engagement_id=engagement_id)
+                return AgentResult(
+                    agent_name="pm",
+                    engagement_id=engagement_id,
+                    status="error",
+                    output={},
+                    error_message="PM agent returned no structured output.",
+                )
+
+            report: QAReport = response.output
+            await self.memory.remember(engagement_id, "qa_report", report.model_dump())
+
+            log.info("pm.complete", engagement_id=engagement_id, status=report.overall_status)
+            return AgentResult(
+                agent_name="pm",
+                engagement_id=engagement_id,
+                status="ok",
+                output=report.model_dump(),
+                next_agent="account",
+            )
 
 
 service: PMService | None = None
@@ -48,6 +100,7 @@ service: PMService | None = None
 async def lifespan(app: FastAPI):  # noqa: ARG001
     global service
     service = PMService()
+    log.info("pm.started")
     yield
 
 
