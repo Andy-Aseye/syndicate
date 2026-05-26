@@ -1,4 +1,4 @@
-# Atlas — Build plan
+# Rubicx's Syndicate — Build plan
 
 Solo, ~160 hours, May 9 → June 5, 2026. Submit Wed June 3 evening (48h buffer before the June 5 deadline).
 
@@ -9,7 +9,7 @@ Goal: leave the weekend able to write ADK agents fluently.
 - [ ] **Sat morning** — Run the [Build Multi-Agent Systems with ADK codelab](https://codelabs.developers.google.com/codelabs/production-ready-ai-with-gc/3-developing-agents/build-a-multi-agent-system-with-adk) end-to-end (~4h).
 - [ ] **Sat afternoon** — Run the Agent Garden tour. Pick the SDR template; deploy it to your dev Cloud Run.
 - [ ] **Sat evening** — Skim the A2A protocol spec + Memory Bank quickstart.
-- [ ] **Sun** — Build a toy 2-agent app (Coordinator + one sub-agent) using THIS scaffold. Get `make dev` to print "Hello from Atlas Coordinator" and route one A2A call.
+- [ ] **Sun** — Build a toy 2-agent app (Coordinator + one sub-agent) using THIS scaffold. Get `make dev` to print "Hello from Rubicx's Syndicate Coordinator" and route one A2A call.
 - [ ] **In parallel** — Send 10–12 outreach DMs to potential pilot clients. Target 3 yeses by Mon.
 - [ ] **Domain** — Register `useatlas.ai` (or `joinatlas.com`). Point at Cloud Run later.
 
@@ -43,7 +43,7 @@ Goal: leave the weekend able to write ADK agents fluently.
 ### Fri — First real client engagement
 
 - [ ] Pick a willing Rubicx client. Pre-record a Discovery call (or use the paste-transcript path).
-- [ ] Run them all the way through Atlas: Discovery → Strategy → Developer → deployed Lovable site.
+- [ ] Run them all the way through the Syndicate: Discovery → Strategy → Developer → deployed Lovable site.
 - [ ] Capture: total time, total cost (Vertex API + Lovable), one quote.
 
 ### Sat — Reflection + W2 plan
@@ -51,7 +51,7 @@ Goal: leave the weekend able to write ADK agents fluently.
 - [ ] If anything blocked the Fri client run, fix it. If everything worked, send the live URL to two more prospects to lock in W2 candidates.
 - [ ] Write the rough draft of the Medium post (publish in W2).
 
-**W1 exit criterion:** one real Lovable-built site shipped through Atlas for a paying Rubicx client.
+**W1 exit criterion:** one real Lovable-built site shipped through the Syndicate for a paying Rubicx client.
 
 ## W2 (Mon May 18 – Sun May 24) — All 6 agents + dashboard polish + Medium post
 
@@ -89,7 +89,7 @@ Goal: leave the weekend able to write ADK agents fluently.
 ### Mon — Agent Simulation
 
 - [ ] Build 50 synthetic "client" personas (varying budgets, industries, deception levels).
-- [ ] Run all 50 through Atlas. Capture failure modes, latency distribution, cost per run.
+- [ ] Run all 50 through the Syndicate. Capture failure modes, latency distribution, cost per run.
 
 ### Tue — Agent Observability
 

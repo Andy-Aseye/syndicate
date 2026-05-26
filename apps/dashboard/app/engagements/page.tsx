@@ -6,7 +6,7 @@ import { LayoutGrid, List, SlidersHorizontal, Star } from 'lucide-react';
 
 // Fallback mock data so we can see the UI even if the DB is empty
 const MOCK_ENGAGEMENTS: Engagement[] = [
-  { id: '1', tenantId: '1', clientName: 'Atlas Rebrand', phase: 'intake', brief: 'Complete brand overhaul and new landing page.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '1', tenantId: '1', clientName: 'Syndicate Rebrand', phase: 'intake', brief: 'Complete brand overhaul and new landing page.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   { id: '2', tenantId: '1', clientName: 'Neon Marketing', phase: 'intake', brief: 'Social media templates and campaign strategy.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   { id: '3', tenantId: '1', clientName: 'Nexus AI Platform', phase: 'strategy', brief: 'AI-driven analytics dashboard for enterprise.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   { id: '4', tenantId: '1', clientName: 'Synthwave App', phase: 'build', brief: 'Mobile app UI implementation with Next.js.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },

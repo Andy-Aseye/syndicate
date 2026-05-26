@@ -7,7 +7,7 @@ export function SecondarySidebar() {
       <div className="p-4 border-b border-border/50">
         <h2 className="font-bold text-sm text-muted uppercase tracking-wider mb-4">Active Projects</h2>
         <div className="space-y-1">
-          <ProjectItem name="Atlas Rebrand" count={3} />
+          <ProjectItem name="Syndicate Rebrand" count={3} />
           <ProjectItem name="Neon Marketing" count={12} active />
           <ProjectItem name="Nexus AI Platform" count={4} />
           <ProjectItem name="Synthwave App" count={8} />

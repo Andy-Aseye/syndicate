@@ -14,7 +14,7 @@ export default async function NewEngagementPage() {
       </Link>
       <h1 className="text-3xl font-bold mt-4 mb-2">Start a new engagement</h1>
       <p className="text-muted mb-8">
-        Atlas will run Discovery → Strategy → Designer → Developer → PM → Account.
+        The Syndicate will run Discovery → Strategy → Designer → Developer → PM → Account.
         The Developer agent calls Lovable for codegen.
       </p>
 

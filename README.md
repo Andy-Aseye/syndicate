@@ -1,7 +1,7 @@
 # Atlas
 
 **The operations layer for the AI-native agency.**
-Atlas runs the entire client engagement — discovery, strategy, design, build, project management, post-launch — across 6 specialized agents orchestrated on Google's Gemini Enterprise Agent Platform. The Developer agent calls [Lovable's Build-with-URL API](https://docs.lovable.dev/integrations/build-with-url); Atlas focuses on the orchestration, client comms, and operations layer that Lovable doesn't.
+Rubicx's Syndicate runs the entire client engagement — discovery, strategy, design, build, project management, post-launch — across 6 specialized agents orchestrated on Google's Gemini Enterprise Agent Platform. The Developer agent calls [Lovable's Build-with-URL API](https://docs.lovable.dev/integrations/build-with-url); Atlas focuses on the orchestration, client comms, and operations layer that Lovable doesn't.
 
 > *"Lovable makes founders into developers. Atlas makes founders into agencies."*
 
@@ -29,8 +29,8 @@ flowchart TB
         CALL[Voice / Slack / Web Form]
     end
 
-    subgraph ATLAS[Atlas Platform on Cloud Run]
-        COORD[Atlas Coordinator<br/>ADK Graph + A2A]
+    subgraph ATLAS[Syndicate Platform on Cloud Run]
+        COORD[Syndicate Coordinator<br/>ADK Graph + A2A]
 
         subgraph AGENTS[6 Specialized Agents]
             DISC[Discovery<br/>Gemini Live voice intake]
@@ -115,7 +115,7 @@ make dev        # Starts dashboard on :3000 + agents on :8080 + Firestore emulat
 make deploy     # Provisions infra via Terraform, deploys agents + dashboard
 ```
 
-A successful local boot ends with a "Hello from Atlas Coordinator" greeting and an empty engagements table at http://localhost:3000.
+A successful local boot ends with a "Hello from Rubicx's Syndicate Coordinator" greeting and an empty engagements table at http://localhost:3000.
 
 ---
 
@@ -124,7 +124,7 @@ A successful local boot ends with a "Hello from Atlas Coordinator" greeting and 
 ```
 atlas/
 ├── agents/                     Python — ADK agents
-│   ├── coordinator/            Atlas Coordinator (routes between sub-agents via A2A)
+│   ├── coordinator/            Syndicate Coordinator (routes between sub-agents via A2A)
 │   ├── discovery/              Voice intake via Gemini Live
 │   ├── strategy/               Positioning, plan, budget
 │   ├── designer/               Nano Banana Pro for imagery + design tokens
@@ -190,7 +190,7 @@ Detailed plan with weekly milestones → [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md
 | Week | Focus | Exit criterion |
 |---|---|---|
 | Pre-W1 (May 9–11) | ADK bootcamp · domain registered · 3 pilot clients confirmed | Toy 2-agent ADK app running locally |
-| W1 (May 12–17) | Foundation + Discovery/Strategy/Developer agents · first real client live | One real Lovable-built site shipped through Atlas |
+| W1 (May 12–17) | Foundation + Discovery/Strategy/Developer agents · first real client live | One real Lovable-built site shipped through the Syndicate |
 | W2 (May 18–24) | All 6 agents wired · Memory Bank · A2A across the graph · dashboard UI · publish Medium post | 3+ engagements in flight · dashboard at a real URL |
 | W3 (May 25–31) | Production hardening: Simulation · Observability · Identity · Gateway · Model Armor · evals | Production-grade traces + sim report + governance config |
 | W4 (Jun 1–3) | Architecture diagram · 3-min demo video · business case writeup · submit | **Submit Wed Jun 3 evening** (48h buffer) |

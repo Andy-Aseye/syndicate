@@ -9,7 +9,7 @@ export default function Home() {
           <div className="w-8 h-8 rounded bg-cyan flex items-center justify-center font-mono font-bold text-bg">
             A
           </div>
-          <span className="font-bold tracking-wide">ATLAS</span>
+          <span className="font-bold tracking-wide">SYNDICATE</span>
         </div>
         <div className="flex items-center gap-4">
           <SignedOut>
@@ -39,9 +39,9 @@ export default function Home() {
           The agency, in a box.
         </h1>
         <p className="max-w-2xl text-lg text-muted leading-relaxed mb-10">
-          Atlas runs the entire client engagement — discovery, strategy, design, build,
+          Rubicx's Syndicate runs the entire client engagement — discovery, strategy, design, build,
           project management, and post-launch ops — across six specialized agents.
-          The Developer agent uses Lovable. Atlas does everything else.
+          The Developer agent uses Lovable. The Syndicate does everything else.
         </p>
         <div className="flex gap-4">
           <SignedOut>
