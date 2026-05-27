@@ -23,13 +23,33 @@ export function EngagementCard({ engagement }: { engagement: Engagement }) {
   const progress = PHASE_PROGRESS[engagement.phase] ?? 10;
   const colorClass = PHASE_COLOR[engagement.phase] ?? 'bg-white/10';
 
+  const phaseLabel = {
+    intake: 'Discovery',
+    strategy: 'Strategy',
+    design: 'Design',
+    build: 'Building',
+    review: 'PM Review',
+    launch: 'Launch',
+    operate: 'Live',
+    paused: 'Needs Approval',
+    archived: 'Archived',
+  }[engagement.phase] ?? engagement.phase;
+
   return (
     <Link
       href={`/engagements/${engagement.id}`}
-      className="group flex flex-col p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-all shadow-sm"
+      className="group flex flex-col p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-all shadow-sm relative overflow-hidden"
     >
+      {engagement.phase === 'paused' && (
+        <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse" />
+      )}
       <div className="flex items-center justify-between mb-3">
-        <div className={`w-8 h-1 rounded-full ${colorClass}`} />
+        <div className="flex items-center gap-2">
+          <div className={`w-3 h-3 rounded-full ${colorClass}`} />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted/80">
+            {phaseLabel}
+          </span>
+        </div>
         <span className="text-xs text-muted/60 font-medium">
           {new Date(engagement.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
         </span>

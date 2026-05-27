@@ -4,25 +4,12 @@ import { listEngagements, type Engagement } from '@/lib/firestore';
 import { EngagementCard } from '@/components/EngagementCard';
 import { LayoutGrid, List, SlidersHorizontal, Star } from 'lucide-react';
 
-// Fallback mock data so we can see the UI even if the DB is empty
-const MOCK_ENGAGEMENTS: Engagement[] = [
-  { id: '1', tenantId: '1', clientName: 'Syndicate Rebrand', phase: 'intake', brief: 'Complete brand overhaul and new landing page.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', tenantId: '1', clientName: 'Neon Marketing', phase: 'intake', brief: 'Social media templates and campaign strategy.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', tenantId: '1', clientName: 'Nexus AI Platform', phase: 'strategy', brief: 'AI-driven analytics dashboard for enterprise.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '4', tenantId: '1', clientName: 'Synthwave App', phase: 'build', brief: 'Mobile app UI implementation with Next.js.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '5', tenantId: '1', clientName: 'Quantum CRM', phase: 'review', brief: 'QA testing for the new CRM deployment.', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
-
 export default async function EngagementsPage() {
   const { userId, orgId } = await auth();
   if (!userId) redirect('/sign-in');
 
   const tenantId = orgId ?? userId;
-  let engagements = await listEngagements(tenantId);
-  
-  if (engagements.length === 0 && process.env.NODE_ENV === 'development') {
-    engagements = MOCK_ENGAGEMENTS;
-  }
+  const engagements = await listEngagements(tenantId);
 
   const columns = [
     { id: 'intake', title: 'Discovery', color: 'text-blue-400' },

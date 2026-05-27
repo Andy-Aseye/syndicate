@@ -73,23 +73,6 @@ export function AgentFeed() {
         )}
         <div ref={bottomRef} />
       </div>
-
-      <div className="p-4 border-t border-border/50">
-        <div className="relative">
-          <input 
-            type="text" 
-            placeholder="Command Coordinator..." 
-            className="w-full bg-bg border border-border rounded-xl pl-4 pr-10 py-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-muted/50"
-            disabled={!engagementId}
-          />
-          <button 
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-primary rounded-lg text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-            disabled={!engagementId}
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

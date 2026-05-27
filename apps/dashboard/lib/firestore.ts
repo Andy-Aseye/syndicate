@@ -21,6 +21,7 @@ export interface Engagement {
   phase: EngagementPhase;
   brief: string;
   deployedUrl?: string;
+  lovableBuildUrl?: string;
   lovableProjectId?: string;
   createdAt: string;
   updatedAt: string;

@@ -33,16 +33,28 @@ export default async function EngagementPage({
             <p className="text-muted">{engagement.clientCompany}</p>
           )}
         </div>
-        {engagement.deployedUrl && (
-          <a
-            href={engagement.deployedUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="px-5 py-3 rounded bg-cyan text-bg font-bold hover:opacity-90"
-          >
-            Open live site ↗
-          </a>
-        )}
+        <div className="flex gap-3">
+          {engagement.lovableBuildUrl && (
+            <a
+              href={engagement.lovableBuildUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="px-5 py-3 rounded border border-cyan text-cyan font-bold hover:bg-cyan/10"
+            >
+              View in Lovable ↗
+            </a>
+          )}
+          {engagement.deployedUrl && (
+            <a
+              href={engagement.deployedUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="px-5 py-3 rounded bg-cyan text-bg font-bold hover:opacity-90"
+            >
+              Open live site ↗
+            </a>
+          )}
+        </div>
       </header>
 
       {/* Real-time Phase timeline & Intercept Gate */}
@@ -60,15 +72,38 @@ export default async function EngagementPage({
         </div>
       </section>
 
-      {/* Live Agent Graph */}
-      <section className="mb-10">
-        <h2 className="text-sm font-bold text-gold uppercase tracking-wider mb-3">
-          Live agent graph
-        </h2>
-        <div className="rounded border border-dashed border-white/10 bg-card p-10 text-center text-muted h-[500px] flex items-center justify-center">
-          Agent graph view loads here. (W2: React Flow visualization of A2A traces.)
-        </div>
-      </section>
+      {/* Live Preview */}
+      {(engagement.deployedUrl || engagement.lovableBuildUrl) && (
+        <section className="mb-10">
+          <h2 className="text-sm font-bold text-gold uppercase tracking-wider mb-3">
+            Live Preview
+          </h2>
+          {engagement.deployedUrl ? (
+            <div className="rounded border border-white/10 bg-card overflow-hidden h-[600px] w-full">
+              <iframe
+                src={engagement.deployedUrl}
+                className="w-full h-full border-0"
+                title="Live Site Preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          ) : (
+            <div className="rounded border border-dashed border-white/10 bg-card p-10 text-center text-muted h-[200px] flex flex-col items-center justify-center gap-4">
+              <p>Site is currently being built in Lovable.</p>
+              {engagement.lovableBuildUrl && (
+                <a
+                  href={engagement.lovableBuildUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan font-bold hover:underline"
+                >
+                  Open Lovable Builder
+                </a>
+              )}
+            </div>
+          )}
+        </section>
+      )}
     </main>
   );
 }
