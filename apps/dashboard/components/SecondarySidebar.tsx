@@ -1,29 +1,37 @@
-import { ChevronDown, Hash, Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { auth } from '@clerk/nextjs/server';
+import { listEngagements } from '@/lib/firestore';
 
-export function SecondarySidebar() {
+export async function SecondarySidebar() {
+  const { userId, orgId } = await auth();
+  const tenantId = orgId ?? userId;
+  
+  let engagements = [];
+  if (tenantId) {
+    engagements = await listEngagements(tenantId);
+  }
+
+  // Sort by updated descending
+  engagements.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
   return (
     <div className="w-64 h-full bg-surface border-r border-border flex flex-col shrink-0">
       <div className="p-4 border-b border-border/50">
         <h2 className="font-bold text-sm text-muted uppercase tracking-wider mb-4">Active Projects</h2>
         <div className="space-y-1">
-          <ProjectItem name="Syndicate Rebrand" count={3} />
-          <ProjectItem name="Neon Marketing" count={12} active />
-          <ProjectItem name="Nexus AI Platform" count={4} />
-          <ProjectItem name="Synthwave App" count={8} />
+          {engagements.length === 0 ? (
+            <p className="text-xs text-muted/60 px-3 py-2 italic">No active projects.</p>
+          ) : (
+            engagements.map(eng => (
+              <ProjectItem key={eng.id} id={eng.id} name={eng.clientName} phase={eng.phase} />
+            ))
+          )}
         </div>
       </div>
       
       <div className="p-4 flex-1 overflow-y-auto">
-        <h2 className="font-bold text-sm text-muted uppercase tracking-wider mb-4 flex items-center justify-between group cursor-pointer hover:text-white">
-          <span>Categories</span>
-          <ChevronDown className="w-4 h-4" />
-        </h2>
-        <div className="space-y-1">
-          <CategoryItem name="Design Phase" color="bg-pink-500" />
-          <CategoryItem name="Engineering" color="bg-blue-500" />
-          <CategoryItem name="Marketing" color="bg-green-500" />
-        </div>
+        {/* Removed static categories section as requested */}
       </div>
 
       <div className="p-4 border-t border-border/50">
@@ -36,12 +44,12 @@ export function SecondarySidebar() {
   );
 }
 
-function ProjectItem({ name, count, active }: { name: string, count: number, active?: boolean }) {
+function ProjectItem({ id, name, phase }: { id: string, name: string, phase: string }) {
   return (
-    <div className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${active ? 'bg-primary/10 text-primary font-medium' : 'text-muted hover:bg-white/5 hover:text-white'}`}>
-      <span className="truncate text-sm">{name}</span>
-      <span className={`text-xs ${active ? 'text-primary' : 'text-muted/60'}`}>{count}</span>
-    </div>
+    <Link href={`/engagements/${id}`} className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors text-muted hover:bg-white/5 hover:text-white">
+      <span className="truncate text-sm pr-2">{name}</span>
+      <span className="text-[10px] uppercase font-bold text-muted/50 tracking-wider shrink-0">{phase === 'intake' ? 'Discovery' : phase}</span>
+    </Link>
   );
 }
 

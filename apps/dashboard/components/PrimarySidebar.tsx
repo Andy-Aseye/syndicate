@@ -12,8 +12,6 @@ export function PrimarySidebar() {
         <nav className="flex flex-col gap-6">
           <SidebarIcon icon={Home} label="Home" href="/" />
           <SidebarIcon icon={Briefcase} label="Engagements" href="/engagements" active />
-          <SidebarIcon icon={Bot} label="Agents" href="/agents" />
-          <SidebarIcon icon={Rocket} label="Deployments" href="/deployments" />
         </nav>
       </div>
       <div className="flex flex-col items-center gap-6">
