@@ -42,17 +42,18 @@ typecheck:
 	@cd apps/dashboard && npm run typecheck
 
 deploy:
-	@cd infra/terraform && terraform apply
+	@echo "Deploying Infrastructure via Cloud Build..."
+	@gcloud builds submit . --config=infra/cloudbuild-infra.yaml
 	@for svc in coordinator discovery strategy designer developer pm account; do \
 		echo "Deploying $$svc..."; \
 		gcloud builds submit . \
 			--config=infra/cloudbuild.yaml \
-			--substitutions=_SERVICE=$$svc,_DOCKERFILE=agents/$$svc/Dockerfile; \
+			--substitutions=_SERVICE=$$svc,_DOCKERFILE=agents/$$svc/Dockerfile,_IMAGE_TAG=$$(git rev-parse --short HEAD); \
 	done
 	@echo "Deploying dashboard..."
-	@gcloud builds submit ./apps/dashboard \
+	@gcloud builds submit . \
 		--config=infra/cloudbuild.yaml \
-		--substitutions=_SERVICE=dashboard,_DOCKERFILE=apps/dashboard/Dockerfile
+		--substitutions=_SERVICE=dashboard,_DOCKERFILE=apps/dashboard/Dockerfile,_IMAGE_TAG=$$(git rev-parse --short HEAD)
 
 clean:
 	rm -rf .venv apps/dashboard/node_modules apps/dashboard/.next

@@ -15,10 +15,10 @@ RUN pip install --no-cache-dir -e ./agents
 
 # App code
 COPY agents/shared ./agents/shared
-COPY agents/coordinator ./agents/coordinator
+COPY agents/strategy ./agents/strategy
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["uvicorn", "agents.coordinator.agent:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "agents.strategy.agent:app", "--host", "0.0.0.0", "--port", "8080"]

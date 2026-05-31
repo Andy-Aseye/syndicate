@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel
 
-from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger, setup_tracing
+from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger, run_agent, setup_tracing
 
 log = get_logger("designer")
 tracer = setup_tracing("atlas-designer")
@@ -29,6 +29,8 @@ class DesignSpec(BaseModel):
     visual_mood: str              # 1–2 sentences describing the feel
     layout_description: str       # paragraph describing key layout decisions
     lovable_design_addendum: str  # design brief to append to the Lovable prompt
+    hero_image_url: str | None = None
+    moodboard_url: str | None = None
 
 
 designer_agent = LlmAgent(
@@ -38,9 +40,12 @@ designer_agent = LlmAgent(
         "You are the Designer agent for Atlas. Given a strategy Plan, produce concrete "
         "design decisions: colour palette (hex codes), typography stack, layout approach, "
         "and visual mood. Then write `lovable_design_addendum` — a focused 100-200 word "
-        "design brief to append to the Lovable Build-with-URL prompt. Be highly specific: "
-        "name exact fonts, hex codes, spacing values, component styles. Align everything "
-        "tightly with the `visual_direction` in the strategy plan."
+        "design brief to append to the Lovable Build-with-URL prompt. "
+        "CRITICAL: Enforce Awwwards-Level Premium UI Architecture: "
+        "1. PALETTE: Deep ink-blacks (#0B0B0C), pristine whites, and one ultra-premium accent color exclusively for active states. "
+        "2. TYPOGRAPHY: Heavy uppercase geometric sans-serif for headers + clean monospaced font (like JetBrains Mono) for data metrics. "
+        "3. FRAMING: Faint 1px borders (#FFFFFF10) and minimum 120px vertical padding. "
+        "Align everything tightly with the `visual_direction` in the strategy plan."
     ),
     output_schema=DesignSpec,
 )
@@ -63,7 +68,8 @@ class DesignerService:
             if not plan:
                 plan = {k: v for k, v in payload.items() if k != "engagement_id"}
 
-            response = await designer_agent.run(
+            response = await run_agent(
+                designer_agent,
                 f"Strategy plan:\n{plan}\n\nProduce the DesignSpec."
             )
 
@@ -78,6 +84,39 @@ class DesignerService:
                 )
 
             spec: DesignSpec = response.output
+
+            # --- Vertex AI Imagen Generation ---
+            try:
+                from google import genai
+                from google.genai import types
+                import base64
+                
+                client = genai.Client()
+                log.info("designer.generating_image", engagement_id=engagement_id)
+                
+                # Generate Hero Image
+                img_result = client.models.generate_images(
+                    model='imagen-3.0-generate-001',
+                    prompt=f"A high-end, Awwwards-winning website hero section. Modern, clean, sleek, premium agency aesthetic. Theme: {spec.visual_mood}. Primary color: {spec.primary_color}.",
+                    config=types.GenerateImagesConfig(
+                        number_of_images=1,
+                        output_mime_type="image/jpeg",
+                        aspect_ratio="16:9"
+                    )
+                )
+                
+                if img_result.generated_images:
+                    image_obj = img_result.generated_images[0].image
+                    if image_obj and image_obj.image_bytes:
+                        b64 = base64.b64encode(image_obj.image_bytes).decode('utf-8')
+                        spec.hero_image_url = f"data:image/jpeg;base64,{b64}"
+                        log.info("designer.image_generated_success", engagement_id=engagement_id)
+            except Exception as e:
+                log.error("designer.image_generation_failed", error=str(e), exc_info=True)
+                # Fallback to a placeholder if Imagen fails (e.g. no quota or ADC not set)
+                spec.hero_image_url = "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80"
+            # -----------------------------------
+
             await self.memory.remember(engagement_id, "design", spec.model_dump())
 
             log.info("designer.complete", engagement_id=engagement_id)

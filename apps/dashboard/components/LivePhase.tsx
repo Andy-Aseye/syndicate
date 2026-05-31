@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ApprovalBanner from './ApprovalBanner';
 
 const PHASE_ORDER = [
@@ -25,9 +26,11 @@ const PHASE_LABEL: Record<string, string> = {
 
 export default function LivePhase({ engagementId, initialPhase }: { engagementId: string, initialPhase: string }) {
   const [phase, setPhase] = useState<string>(initialPhase);
+  const router = useRouter();
   // Use a ref so the async poll loop always reads the latest phase without
   // needing to restart (stale closure fix).
   const phaseRef = useRef<string>(initialPhase);
+  const hasSeenUrls = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -41,6 +44,10 @@ export default function LivePhase({ engagementId, initialPhase }: { engagementId
             if (data.phase && data.phase !== phaseRef.current) {
               phaseRef.current = data.phase;
               setPhase(data.phase);
+            }
+            if ((data.lovableBuildUrl || data.deployedUrl) && !hasSeenUrls.current) {
+              hasSeenUrls.current = true;
+              router.refresh();
             }
           }
         } catch (e) {

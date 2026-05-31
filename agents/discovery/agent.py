@@ -21,6 +21,7 @@ from agents.shared import (
     AgentResult,
     MemoryBank,
     get_logger,
+    run_agent,
     setup_tracing,
 )
 
@@ -108,7 +109,7 @@ class DiscoveryService:
                 )
 
             # Extract structured requirements.
-            response = await extraction_agent.run(transcript)
+            response = await run_agent(extraction_agent, transcript)
             requirements: Requirements | None = response.output
 
             if requirements is None:

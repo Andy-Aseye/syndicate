@@ -1,4 +1,4 @@
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, Hash, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
 import { listEngagements } from '@/lib/firestore';
@@ -7,7 +7,7 @@ export async function SecondarySidebar() {
   const { userId, orgId } = await auth();
   const tenantId = orgId ?? userId;
   
-  let engagements = [];
+  let engagements: any[] = [];
   if (tenantId) {
     engagements = await listEngagements(tenantId);
   }

@@ -14,7 +14,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${_IMAGE_TAG}'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:latest'
       - '-f'
@@ -37,7 +37,7 @@ steps:
       - 'run'
       - 'deploy'
       - 'atlas-${_SERVICE}'
-      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${SHORT_SHA}'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${_SERVICE}:${_IMAGE_TAG}'
       - '--region=${_REGION}'
       - '--platform=managed'
       - '--allow-unauthenticated'
@@ -45,7 +45,8 @@ steps:
       - '--memory=1Gi'
       - '--cpu=1'
       - '--max-instances=10'
-      - '--set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT_ID},ATLAS_ENV=${_ATLAS_ENV}'
+      - '--no-cpu-throttling'
+      - '--set-env-vars=GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${_REGION},GOOGLE_GENAI_USE_VERTEXAI=true,ATLAS_ENV=${_ATLAS_ENV},AGENT_URL_COORDINATOR=https://atlas-coordinator-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_DISCOVERY=https://atlas-discovery-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_STRATEGY=https://atlas-strategy-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_DESIGNER=https://atlas-designer-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_DEVELOPER=https://atlas-developer-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_PM=https://atlas-pm-${PROJECT_NUMBER}.${_REGION}.run.app,AGENT_URL_ACCOUNT=https://atlas-account-${PROJECT_NUMBER}.${_REGION}.run.app'
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -55,5 +56,6 @@ substitutions:
   _SERVICE: 'coordinator'
   _DOCKERFILE: 'agents/coordinator/Dockerfile'
   _ATLAS_ENV: 'staging'
+  _IMAGE_TAG: 'latest'
 
 timeout: '1200s'

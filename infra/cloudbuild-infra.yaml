@@ -1,0 +1,40 @@
+# Atlas Infrastructure Cloud Build pipeline.
+#
+# This pipeline runs Terraform to provision the GCP resources.
+#
+steps:
+  # ---- Create Terraform State Bucket (if it doesn't exist) ----
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'create-bucket'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if ! gcloud storage buckets describe gs://atlas-tf-state-${PROJECT_ID} &>/dev/null; then
+          gcloud storage buckets create gs://atlas-tf-state-${PROJECT_ID} --project=${PROJECT_ID} --location=${_REGION}
+        fi
+
+  # ---- Initialize Terraform ----
+  - name: 'hashicorp/terraform:1.6'
+    id: 'terraform-init'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cd infra/terraform
+        terraform init
+
+  # ---- Apply Terraform ----
+  - name: 'hashicorp/terraform:1.6'
+    id: 'terraform-apply'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cd infra/terraform
+        terraform apply -auto-approve -var="project_id=${PROJECT_ID}" -var="region=${_REGION}"
+
+substitutions:
+  _REGION: 'us-central1'
+
+timeout: '1200s'

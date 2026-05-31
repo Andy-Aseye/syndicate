@@ -19,6 +19,7 @@ from agents.shared import (
     AgentResult,
     MemoryBank,
     get_logger,
+    run_agent,
     setup_tracing,
 )
 
@@ -46,8 +47,12 @@ strategy_agent = LlmAgent(
         "You are the Strategy agent for Atlas. Given a client's Requirements, "
         "produce a concrete Plan that the Designer and Developer agents can execute. "
         "Specifically: write `build_scope_lovable_prompt` as a 200-400 word, highly "
-        "specific prompt that Lovable's Build-with-URL API will turn into a working "
-        "site. Include sitemap, content tone, visual direction, integrations. "
+        "specific prompt that Lovable's Build-with-URL API will turn into a working site. "
+        "CRITICAL: Inject Awwwards-Level Premium UI Architecture into the Lovable prompt: "
+        "1. PALETTE: Strict high-contrast minimalist base. Deep ink-blacks (#0B0B0C) and pristine whites. Use one ultra-premium accent color EXCLUSIVELY for active states/micro-elements. "
+        "2. TYPOGRAPHY: Heavy, tightly-tracked uppercase geometric sans-serif for headers. Pair with a clean monospaced font (like JetBrains Mono or Space Grotesk) for data/metrics. "
+        "3. FRAMING: Structured grid language using faint 1px borders (#FFFFFF10) to separate zones. Generous minimum 120px vertical padding between core sections. "
+        "4. COMPONENTS: Immersive full-bleed cinematic hero, decoupled data readouts, prestige exhibit grid matrix (no basic cards), and snappy micro-interactions (instant color-inversion, arrow-slides). "
         "Be realistic about timeline and cost — agency rates for this kind of work "
         "are typically $50-150/hr; assume Atlas reduces that by 10-20x."
     ),
@@ -82,7 +87,8 @@ class StrategyService:
                     error_message="No requirements found in memory or payload.",
                 )
 
-            response = await strategy_agent.run(
+            response = await run_agent(
+                strategy_agent,
                 f"Requirements:\n{requirements}\n\nProduce the Plan."
             )
             plan: Plan | None = response.output

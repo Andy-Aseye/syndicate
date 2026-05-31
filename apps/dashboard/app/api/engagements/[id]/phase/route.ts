@@ -20,18 +20,33 @@ export async function GET(
   const { id } = await params;
   try {
     ensureInit();
-    const doc = await getFirestore()
-      .collection('engagements')
+    const db = getFirestore();
+    const doc = await db.collection('engagements').doc(id).get();
+
+    const snapshot = await db.collection('engagements')
       .doc(id)
+      .collection('logs')
+      .orderBy('timestamp', 'asc')
       .get();
 
+    const logs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
     if (!doc.exists) {
-      return NextResponse.json({ phase: 'intake' });
+      return NextResponse.json({ phase: 'intake', logs });
     }
 
-    return NextResponse.json({ phase: doc.data()?.phase || 'intake' });
+    const data = doc.data() || {};
+    return NextResponse.json({ 
+      phase: data.phase || 'intake', 
+      logs,
+      lovableBuildUrl: data.lovableBuildUrl,
+      deployedUrl: data.deployedUrl
+    });
   } catch (e: any) {
     console.error('[API /phase] Error:', e.message);
-    return NextResponse.json({ phase: 'intake', error: e.message }, { status: 500 });
+    return NextResponse.json({ phase: 'intake', logs: [], error: e.message }, { status: 500 });
   }
 }
