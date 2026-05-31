@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel
 
-from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger, setup_tracing
+from agents.shared import A2AServer, AgentResult, MemoryBank, get_logger, run_agent, setup_tracing
 
 log = get_logger("account")
 tracer = setup_tracing("atlas-account")
@@ -61,7 +61,8 @@ class AccountService:
             client_name = payload.get("client_name", "")
             brief = payload.get("brief", "")
 
-            response = await account_agent.run(
+            response = await run_agent(
+                account_agent,
                 f"Client: {client_name}\n"
                 f"Brief: {brief}\n"
                 f"Strategy plan: {plan}\n"

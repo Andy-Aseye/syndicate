@@ -25,7 +25,7 @@ export function AgentFeed() {
     async function poll() {
       while (active) {
         try {
-          const res = await fetch(`/api/engagements/${engagementId}/logs`);
+          const res = await fetch(`/api/engagements/${engagementId}/phase`);
           if (res.ok) {
             const data = await res.json();
             setLogs(data.logs ?? []);

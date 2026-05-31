@@ -16,15 +16,17 @@ __all__ = [
     "A2AServer",
     "setup_tracing",
     "get_logger",
+    "run_agent",
 ]
 
 # ---------------------------------------------------------------------------
-# Polyfill for ADK Agent.run()
+# Standalone helper for ADK Agent invocation
 # Google ADK uses a `Runner` architecture, but for simple agent invocations
-# it's convenient to have a direct `.run()` method. This monkey-patches
-# BaseAgent so existing code works without modification.
+# it's convenient to have a direct call. This is a standalone async function
+# instead of a monkey-patch on BaseAgent, because newer ADK versions use
+# `.run(ctx=..., node_input=...)` internally and patching breaks that.
 #
-# ADK 1.33.0: Events are `google.adk.events.Event` with:
+# ADK 1.33+: Events are `google.adk.events.Event` with:
 #   - event.content.parts[].text  → raw LLM text (JSON when output_schema set)
 #   - event.actions.state_delta   → parsed output (only if output_key is set)
 #   - event.is_final_response()   → True on the last model response
@@ -33,7 +35,6 @@ import json
 import logging
 import uuid
 
-from google.adk.agents.base_agent import BaseAgent
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 from google.genai import types
@@ -46,14 +47,15 @@ class _RunResult:
         self.output = output
 
 
-async def _agent_run(self, prompt: str):
+async def run_agent(agent, prompt: str):
+    """Run an ADK agent with a simple text prompt and return a _RunResult."""
     session_svc = InMemorySessionService()
     session_id = str(uuid.uuid4())
     await session_svc.create_session(
         app_name="atlas", user_id="system", session_id=session_id
     )
 
-    runner = Runner(app_name="atlas", agent=self, session_service=session_svc)
+    runner = Runner(app_name="atlas", agent=agent, session_service=session_svc)
     msg = types.Content(role="user", parts=[types.Part.from_text(text=prompt)])
 
     output = None
@@ -80,7 +82,7 @@ async def _agent_run(self, prompt: str):
     # If we got output from state_delta, use it directly.
     # Otherwise, parse the last text response against output_schema.
     if output is None and last_text is not None:
-        schema = getattr(self, "output_schema", None)
+        schema = getattr(agent, "output_schema", None)
         if schema is not None:
             try:
                 data = json.loads(last_text)
@@ -98,6 +100,4 @@ async def _agent_run(self, prompt: str):
 
     return _RunResult(output=output)
 
-
-BaseAgent.run = _agent_run
 

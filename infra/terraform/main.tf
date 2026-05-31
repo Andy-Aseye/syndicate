@@ -15,6 +15,10 @@
 
 terraform {
   required_version = ">= 1.6"
+  backend "gcs" {
+    bucket = "atlas-tf-state-project-cc9b6e61-a019-4971-a10"
+    prefix = "terraform/state"
+  }
   required_providers {
     google = { source = "hashicorp/google", version = "~> 6.10" }
   }
