@@ -154,4 +154,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="strategy",
+    description="Produces positioning, information architecture, and a build plan.",
+    skills=[{
+        "id": "build-strategy",
+        "name": "Build Strategy",
+        "description": "Generate positioning, target persona, IA, components, and cost/timeline estimates for approval.",
+        "tags": ["strategy", "planning"],
+    }],
+)

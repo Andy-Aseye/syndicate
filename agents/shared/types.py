@@ -19,6 +19,7 @@ class EngagementPhase(str, Enum):
     STRATEGY = "strategy"              # Strategy agent is producing plan/positioning
     DESIGN = "design"                  # Designer agent is producing brand + imagery
     BUILD = "build"                    # Developer agent is calling Lovable
+    AWAITING_URL = "awaiting_url"      # Build launched; awaiting human to paste live URL
     REVIEW = "review"                  # PM agent is gating client communications
     LAUNCH = "launch"                  # Site is deploying / launching
     OPERATE = "operate"                # Account agent is in post-launch ops

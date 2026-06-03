@@ -152,4 +152,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="designer",
+    description="Produces brand tokens, visual direction, and imagery specs.",
+    skills=[{
+        "id": "design-brand",
+        "name": "Design Brand",
+        "description": "Generate design tokens, color/type direction, and a visual spec from the approved strategy.",
+        "tags": ["design", "branding"],
+    }],
+)

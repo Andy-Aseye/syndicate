@@ -58,3 +58,17 @@ export async function approveEngagementAction(engagementId: string, adjustments:
     console.error('Failed to approve engagement:', err);
   }
 }
+
+export async function submitLiveUrlAction(engagementId: string, liveUrl: string) {
+  try {
+    await fetch(`${process.env.ATLAS_COORDINATOR_URL}/api/engagements/${engagementId}/live-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ live_url: liveUrl }),
+    });
+    // Revalidate so the page pulls the latest 'review' phase from Firestore
+    revalidatePath(`/engagements/${engagementId}`);
+  } catch (err) {
+    console.error('Failed to submit live URL:', err);
+  }
+}

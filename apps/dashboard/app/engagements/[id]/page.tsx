@@ -58,7 +58,7 @@ export default async function EngagementPage({
       </header>
 
       {/* Real-time Phase timeline & Intercept Gate */}
-      <LivePhase engagementId={engagement.id} initialPhase={engagement.phase} />
+      <LivePhase engagementId={engagement.id} initialPhase={engagement.phase} initialLovableBuildUrl={engagement.lovableBuildUrl} />
 
       {/* Brief */}
       <section className="mb-10">

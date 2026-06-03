@@ -171,6 +171,44 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         except Exception as e:
             return [TextContent(type="text", text=f"Exception while calling Shopify: {str(e)}")]
 
+    if name == "slack_post_message":
+        channel = arguments.get("channel") or os.environ.get("SLACK_CHANNEL", "#general")
+        text = arguments.get("text", "")
+        thread_ts = arguments.get("thread_ts")
+        token = os.environ.get("SLACK_BOT_TOKEN")
+
+        # Graceful simulate: if no token, never break the demo — report a
+        # simulated success so the pipeline continues end-to-end.
+        if not token:
+            return [TextContent(
+                type="text",
+                text=(
+                    f"[simulated] Slack message posted to {channel} "
+                    f"(SLACK_BOT_TOKEN not set). text={text[:200]}"
+                ),
+            )]
+
+        try:
+            from slack_sdk.web.async_client import AsyncWebClient
+
+            client = AsyncWebClient(token=token)
+            kwargs: dict[str, Any] = {"channel": channel, "text": text}
+            if thread_ts:
+                kwargs["thread_ts"] = thread_ts
+            resp = await client.chat_postMessage(**kwargs)
+            ts = resp.get("ts")
+            posted_channel = resp.get("channel", channel)
+            return [TextContent(
+                type="text",
+                text=f"Slack message posted to {posted_channel} (ts={ts}).",
+            )]
+        except Exception as e:
+            # Never break the demo on a Slack error — degrade to simulated success.
+            return [TextContent(
+                type="text",
+                text=f"[simulated] Slack post to {channel} (live call failed: {e}). text={text[:200]}",
+            )]
+
     # Catch-all stub for other tools
     return [
         TextContent(
@@ -187,7 +225,15 @@ def main() -> None:
     """Entry point used by the `mcp-server-agency` script."""
     import asyncio
 
-    asyncio.run(mcp.server.stdio.run(server))
+    async def _run() -> None:
+        async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream,
+                write_stream,
+                server.create_initialization_options(),
+            )
+
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":

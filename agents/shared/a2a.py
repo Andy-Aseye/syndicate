@@ -10,6 +10,7 @@ import os
 from typing import Any
 
 import httpx
+from fastapi import Request
 
 from .types import AgentResult
 
@@ -64,18 +65,56 @@ class A2AClient:
         await self._http.aclose()
 
 
+A2A_PROTOCOL_VERSION = "1.0"
+
+
 class A2AServer:
     """FastAPI mountpoint helper.
+
+    Mounts the Atlas A2A task endpoint (`POST /a2a/invoke`), a health check, and
+    a spec-compliant A2A Agent Card at `GET /.well-known/agent-card.json`
+    (A2A spec 1.0; see https://a2a-protocol.org). The Agent Card lets any
+    A2A-aware client discover the agent's identity, transport, and skills.
 
     Usage in an agent:
         from agents.shared import A2AServer
         from fastapi import FastAPI
 
         app = FastAPI()
-        A2AServer(app, handler=my_agent_invoke_handler)
+        A2AServer(
+            app,
+            handler=my_agent_invoke_handler,
+            agent_name="discovery",
+            description="Gathers requirements from a client brief.",
+            skills=[{
+                "id": "discover",
+                "name": "Discovery",
+                "description": "Extract goals, audience, and constraints.",
+                "tags": ["intake", "requirements"],
+            }],
+        )
     """
 
-    def __init__(self, app, handler) -> None:
+    def __init__(
+        self,
+        app,
+        handler,
+        *,
+        agent_name: str | None = None,
+        description: str | None = None,
+        skills: list[dict[str, Any]] | None = None,
+        version: str = "1.0.0",
+    ) -> None:
+        name = agent_name or getattr(app, "title", "atlas-agent")
+        desc = description or f"Atlas {name} agent."
+        default_skill = {
+            "id": f"{name}-task",
+            "name": name.replace("-", " ").title(),
+            "description": desc,
+            "tags": ["atlas"],
+        }
+        agent_skills = skills or [default_skill]
+
         @app.post("/a2a/invoke")
         async def invoke(body: dict[str, Any]) -> dict[str, Any]:
             result = await handler(
@@ -88,3 +127,35 @@ class A2AServer:
         @app.get("/healthz")
         async def health() -> dict[str, str]:
             return {"status": "ok"}
+
+        def _build_card(base_url: str) -> dict[str, Any]:
+            base = base_url.rstrip("/")
+            return {
+                "protocolVersion": A2A_PROTOCOL_VERSION,
+                "name": name,
+                "description": desc,
+                "url": f"{base}/a2a/invoke",
+                "preferredTransport": "HTTP+JSON",
+                "version": version,
+                "capabilities": {
+                    "streaming": False,
+                    "pushNotifications": False,
+                    "stateTransitionHistory": False,
+                },
+                "defaultInputModes": ["application/json"],
+                "defaultOutputModes": ["application/json"],
+                "skills": agent_skills,
+            }
+
+        @app.get("/.well-known/agent-card.json")
+        async def agent_card(request: Request) -> dict[str, Any]:
+            # Derive the externally-visible base URL from the request so the card
+            # is correct whether served locally or on Cloud Run.
+            base = str(request.base_url)
+            return _build_card(base)
+
+        # Legacy discovery path some A2A clients still probe.
+        @app.get("/.well-known/agent.json")
+        async def agent_card_legacy(request: Request) -> dict[str, Any]:
+            base = str(request.base_url)
+            return _build_card(base)

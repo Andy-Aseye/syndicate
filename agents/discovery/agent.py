@@ -177,4 +177,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="discovery",
+    description="Extracts goals, audience, and constraints from a client brief.",
+    skills=[{
+        "id": "discover-requirements",
+        "name": "Discover Requirements",
+        "description": "Turn a raw client brief into structured goals, target audience, and project constraints.",
+        "tags": ["intake", "requirements"],
+    }],
+)
