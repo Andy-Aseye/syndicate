@@ -20,3 +20,8 @@ mcp-server-agency = "agency_mcp_server:main"
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# Flat layout with a single shipped module. Pin it explicitly so setuptools
+# auto-discovery does not choke on sibling files (e.g. test_shopify.py).
+[tool.setuptools]
+py-modules = ["agency_mcp_server"]

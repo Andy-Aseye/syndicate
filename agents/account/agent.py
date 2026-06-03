@@ -116,4 +116,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="account",
+    description="Drafts the launch email and month-one post-launch plan.",
+    skills=[{
+        "id": "post-launch-ops",
+        "name": "Post-launch Ops",
+        "description": "Produce a launch announcement and a 30-day account plan once the site is live.",
+        "tags": ["account", "post-launch"],
+    }],
+)

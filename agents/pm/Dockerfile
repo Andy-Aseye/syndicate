@@ -13,6 +13,11 @@ COPY agents/pyproject.toml ./agents/pyproject.toml
 COPY agents/__init__.py ./agents/__init__.py
 RUN pip install --no-cache-dir -e ./agents
 
+# agency-mcp server: PM spawns it over stdio to post client updates to Slack.
+# Installing it here exposes the `mcp-server-agency` entry point in the image.
+COPY mcp ./mcp
+RUN pip install --no-cache-dir -e ./mcp
+
 # App code
 COPY agents/shared ./agents/shared
 COPY agents/pm ./agents/pm

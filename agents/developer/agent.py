@@ -210,4 +210,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="developer",
+    description="Assembles a build prompt and launches the site via Lovable.",
+    skills=[{
+        "id": "build-site",
+        "name": "Build Site",
+        "description": "Compose a Lovable Build-with-URL prompt from the design spec and initiate the build.",
+        "tags": ["build", "lovable", "codegen"],
+    }],
+)

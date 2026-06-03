@@ -44,6 +44,43 @@ pm_agent = LlmAgent(
 )
 
 
+async def _post_to_slack_via_mcp(text: str, channel: str | None = None) -> str:
+    """Post a client update to Slack by calling the agency-mcp server over stdio.
+
+    This is a genuine MCP client→server round-trip (the Track 1 "agent uses MCP
+    to reach external tools" claim). It is wrapped so any failure degrades to a
+    log line rather than breaking the engagement pipeline. The agency-mcp
+    `slack_post_message` tool itself simulates success when SLACK_BOT_TOKEN is
+    unset, so the demo always completes end-to-end.
+    """
+    try:
+        from mcp import ClientSession, StdioServerParameters
+        from mcp.client.stdio import stdio_client
+
+        channel = channel or os.environ.get("SLACK_CHANNEL", "#client-updates")
+        # Spawn the canonical agency-mcp server (installed entry point).
+        server_params = StdioServerParameters(
+            command=os.environ.get("AGENCY_MCP_COMMAND", "mcp-server-agency"),
+            args=[],
+            env=os.environ.copy(),
+        )
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                result = await session.call_tool(
+                    "slack_post_message",
+                    {"channel": channel, "text": text},
+                )
+                parts = [
+                    c.text for c in result.content
+                    if getattr(c, "type", None) == "text"
+                ]
+                return " ".join(parts) if parts else "Slack tool returned no text."
+    except Exception as e:  # noqa: BLE001
+        log.warning("pm.mcp_slack_failed", error=str(e))
+        return f"Slack post skipped (MCP call failed: {e})"
+
+
 class PMService:
     def __init__(self) -> None:
         self.memory = MemoryBank()
@@ -130,12 +167,20 @@ class PMService:
 
             await self.memory.remember(engagement_id, "qa_report", report.model_dump())
 
+            # Genuine MCP usage: push the client-ready update to Slack via the
+            # agency-mcp server. Never blocks the pipeline on failure.
+            slack_result = await _post_to_slack_via_mcp(report.client_update)
+            log.info("pm.slack_posted", engagement_id=engagement_id, result=slack_result)
+
+            output = report.model_dump()
+            output["slack_result"] = slack_result
+
             log.info("pm.complete", engagement_id=engagement_id, status=report.overall_status)
             return AgentResult(
                 agent_name="pm",
                 engagement_id=engagement_id,
                 status="ok",
-                output=report.model_dump(),
+                output=output,
                 next_agent="account",
             )
 
@@ -163,4 +208,15 @@ async def _handler(
     return await service.invoke(engagement_id, payload, require_approval)
 
 
-A2AServer(app, handler=_handler)
+A2AServer(
+    app,
+    handler=_handler,
+    agent_name="pm",
+    description="Runs launch QA (Lighthouse) and posts the client update to Slack via MCP.",
+    skills=[{
+        "id": "qa-and-report",
+        "name": "QA & Report",
+        "description": "Run Lighthouse against the live site, produce a QA report, and post the client update to Slack via the agency MCP server.",
+        "tags": ["qa", "lighthouse", "mcp", "slack"],
+    }],
+)

@@ -33,6 +33,17 @@ service cloud.firestore {
       allow read, update, delete: if isOwnerOfTenant(resource.data.tenantId);
       allow create: if isSignedIn()
         && request.resource.data.tenantId == tenantId();
+
+      // ---- Live agent activity log (server writes; tenant owner reads) ----
+      // Agents append log entries via the Admin SDK (which bypasses these
+      // rules); clients may only read logs for engagements in their tenant.
+      match /logs/{logId} {
+        allow read: if isSignedIn()
+          && isOwnerOfTenant(
+               get(/databases/$(database)/documents/engagements/$(engagementId)).data.tenantId
+             );
+        allow write: if false; // only the server (admin SDK) writes logs
+      }
     }
 
     // ---- Memory (per-engagement key/value store) ----
