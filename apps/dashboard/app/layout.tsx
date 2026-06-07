@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from '../components/ThemeProvider';
+
+const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: "Rubicx's Syndicate — the agency, in a box",
@@ -15,9 +19,11 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className="bg-bg text-white min-h-screen font-sans antialiased">
-          {children}
+      <html lang="en" suppressHydrationWarning>
+        <body className={`bg-gray-50 dark:bg-bg text-zinc-900 dark:text-white min-h-screen antialiased ${plusJakartaSans.className}`}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>
