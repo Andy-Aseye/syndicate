@@ -41,9 +41,7 @@ export function EngagementCard({ engagement }: { engagement: Engagement }) {
       href={`/engagements/${engagement.id}`}
       className="group flex flex-col p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-all shadow-sm relative overflow-hidden"
     >
-      {engagement.phase === 'paused' && (
-        <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse" />
-      )}
+      <div className={`absolute top-0 left-0 w-full h-1 ${colorClass} ${engagement.phase === 'paused' ? 'animate-pulse' : 'opacity-80'}`} />
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${colorClass}`} />
@@ -51,9 +49,16 @@ export function EngagementCard({ engagement }: { engagement: Engagement }) {
             {phaseLabel}
           </span>
         </div>
-        <span className="text-xs text-muted/60 font-medium">
-          {new Date(engagement.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-        </span>
+        {engagement.phase === 'operate' ? (
+          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-green-500/40 bg-green-500/15 text-green-400 text-[10px] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live
+          </span>
+        ) : (
+          <span className="text-xs text-muted/60 font-medium">
+            {new Date(engagement.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+          </span>
+        )}
       </div>
       
       <h3 className="font-bold text-[15px] mb-1 text-white group-hover:text-primary transition-colors">

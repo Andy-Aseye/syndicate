@@ -13,6 +13,11 @@ COPY agents/pyproject.toml ./agents/pyproject.toml
 COPY agents/__init__.py ./agents/__init__.py
 RUN pip install --no-cache-dir -e ./agents
 
+# agency-mcp server: Account spawns it over stdio (via ADK McpToolset) to send
+# the launch email. Installing it here exposes the `mcp-server-agency` entry point.
+COPY mcp ./mcp
+RUN pip install --no-cache-dir -e ./mcp
+
 # App code
 COPY agents/shared ./agents/shared
 COPY agents/account ./agents/account

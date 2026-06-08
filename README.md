@@ -37,11 +37,11 @@ flowchart TB
             STRAT[Strategy<br/>plan / scope / budget]
             DES[Designer<br/>tokens + Imagen hero]
             DEV[Developer<br/>Lovable Build-with-URL]
-            PM[Project Manager<br/>Lighthouse QA + Slack]
+            PM[Project Manager<br/>Lighthouse QA + dashboard report]
             ACC[Account Manager<br/>launch + 30-day plan]
         end
 
-        MCP[agency-mcp server<br/>live Slack tool + stubs]
+        MCP[agency-mcp server<br/>extensible tools]
         MEM[(Memory Bank<br/>Firestore-backed context)]
     end
 
@@ -56,7 +56,6 @@ flowchart TB
 
     subgraph EXT[External]
         LOV[Lovable Build-with-URL]
-        SLACK[Slack]
     end
 
     WEB --> COORD
@@ -70,8 +69,7 @@ flowchart TB
     STRAT --> APP
     DEV --> URL
 
-    PM -->|MCP| MCP
-    MCP --> SLACK
+    PM -->|QA report| FS
     DEV --> LOV
 
     AGENTS --> MEM

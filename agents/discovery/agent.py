@@ -9,11 +9,13 @@ Run:
 from __future__ import annotations
 
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
 from google.adk.agents import LlmAgent
+from google.adk.tools import google_search, url_context
 from pydantic import BaseModel
 
 from agents.shared import (
@@ -27,6 +29,8 @@ from agents.shared import (
 
 log = get_logger("discovery")
 tracer = setup_tracing("atlas-discovery")
+
+_URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 
 
 class Requirements(BaseModel):
@@ -59,6 +63,66 @@ extraction_agent = LlmAgent(
     ),
     output_schema=Requirements,
 )
+
+
+# ---------------------------------------------------------------------------
+# Research grounding — a tool-using sub-agent (NO output_schema) that fetches
+# real context before extraction. ADK constraint: output_schema + tools is
+# unreliable on Gemini 2.5, and only one built-in tool is allowed per agent,
+# so we pick url_context (when the brief names a URL) OR google_search.
+# ---------------------------------------------------------------------------
+_MODEL_PRO = os.environ.get("GEMINI_MODEL_PRO", "gemini-2.5-pro")
+
+
+async def _research_context(brief: str, client_company: str | None) -> str:
+    """Ground discovery in the client's real business. Returns a research
+    summary (or "" if research is unavailable/fails — never raises)."""
+    match = _URL_RE.search(brief or "")
+    url = match.group(0).rstrip(".,") if match else None
+
+    try:
+        if url:
+            research_agent = LlmAgent(
+                name="discovery_research_url",
+                model=_MODEL_PRO,
+                instruction=(
+                    "You are a research assistant for a digital agency. Fetch the "
+                    "provided URL and summarize the business: what they do, their "
+                    "products/services, target audience, tone/brand voice, and any "
+                    "visual style cues. Be factual and concise; do not invent details."
+                ),
+                tools=[url_context],
+            )
+            prompt = f"Fetch and summarize this site: {url}\n\nClient brief: {brief}"
+        else:
+            query_subject = client_company or (brief[:120] if brief else "")
+            if not query_subject.strip():
+                return ""
+            research_agent = LlmAgent(
+                name="discovery_research_search",
+                model=_MODEL_PRO,
+                instruction=(
+                    "You are a research assistant for a digital agency. Use Google "
+                    "Search to research the company and summarize: what they do, their "
+                    "products/services, target audience, tone/brand voice, and any "
+                    "visual style cues. Be factual and concise; do not invent details. "
+                    "If you cannot find the company, say so briefly."
+                ),
+                tools=[google_search],
+            )
+            prompt = (
+                f"Research this company and summarize its business.\n"
+                f"Company: {query_subject}\nClient brief: {brief}"
+            )
+
+        result = await run_agent(research_agent, prompt)
+        summary = result.output if isinstance(result.output, str) else None
+        if summary and summary.strip():
+            log.info("discovery.research_complete", grounded_via="url" if url else "search")
+            return summary.strip()
+    except Exception as exc:  # never block discovery on research failure
+        log.warning("discovery.research_failed", error=str(exc))
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +172,21 @@ class DiscoveryService:
                     error_message="No transcript, brief, or phone provided.",
                 )
 
+            # Ground the extraction in the client's real business (ADK built-in
+            # tools: url_context when the brief names a URL, else google_search).
+            research_summary = await _research_context(
+                transcript, payload.get("client_company") or payload.get("clientCompany")
+            )
+            extraction_input = transcript
+            if research_summary:
+                extraction_input = (
+                    f"{transcript}\n\n"
+                    f"--- Research findings (grounding; treat as factual context) ---\n"
+                    f"{research_summary}"
+                )
+
             # Extract structured requirements.
-            response = await run_agent(extraction_agent, transcript)
+            response = await run_agent(extraction_agent, extraction_input)
             requirements: Requirements | None = response.output
 
             if requirements is None:

@@ -19,7 +19,11 @@ export async function submitEngagementAction(formData: FormData) {
   });
 
   // 2. Trigger the Coordinator via the ADK API
-  const payload = { brief: String(formData.get('brief') ?? '') };
+  const payload = {
+    brief: String(formData.get('brief') ?? ''),
+    client_name: String(formData.get('clientName') ?? '') || undefined,
+    client_company: String(formData.get('clientCompany') ?? '') || undefined,
+  };
   await triggerCoordinatorAPI(id, payload);
 
   // 3. Navigate the user to the "Glass Engine" detail view

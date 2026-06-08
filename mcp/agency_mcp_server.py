@@ -65,6 +65,23 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="send_email",
+            description=(
+                "Send an email to a client (e.g. the launch-day announcement). "
+                "Delivers via the Resend API when RESEND_API_KEY is set; otherwise "
+                "returns a simulated success so pipelines never break."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "Recipient email address."},
+                    "subject": {"type": "string"},
+                    "text": {"type": "string", "description": "Plain-text email body."},
+                },
+                "required": ["to", "subject", "text"],
+            },
+        ),
+        Tool(
             name="slack_post_message",
             description="Post a message to a Slack channel as the Atlas bot.",
             inputSchema={
@@ -170,6 +187,52 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     )]
         except Exception as e:
             return [TextContent(type="text", text=f"Exception while calling Shopify: {str(e)}")]
+
+    if name == "send_email":
+        to = (arguments.get("to") or "").strip()
+        subject = arguments.get("subject", "Your new site is live")
+        text = arguments.get("text", "")
+
+        if not to:
+            return [TextContent(type="text", text="Email send failed: no recipient address.")]
+
+        api_key = os.environ.get("RESEND_API_KEY")
+        sender = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
+
+        # Graceful simulate: if no key, never break the demo — report a
+        # simulated success so the pipeline continues end-to-end.
+        if not api_key:
+            return [TextContent(
+                type="text",
+                text=(
+                    f"[simulated] Email to {to} (RESEND_API_KEY not set). "
+                    f"subject={subject!r}"
+                ),
+            )]
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"from": sender, "to": [to], "subject": subject, "text": text},
+                    timeout=15.0,
+                )
+            if resp.status_code in (200, 201):
+                email_id = (resp.json() or {}).get("id", "unknown")
+                return [TextContent(
+                    type="text",
+                    text=f"Email sent to {to} (id={email_id}).",
+                )]
+            return [TextContent(
+                type="text",
+                text=f"Email send failed: Resend returned {resp.status_code} {resp.text[:200]}",
+            )]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Email send failed: {e}")]
 
     if name == "slack_post_message":
         channel = arguments.get("channel") or os.environ.get("SLACK_CHANNEL", "#general")

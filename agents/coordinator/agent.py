@@ -237,11 +237,23 @@ class CoordinatorService:
             await self._set_phase(engagement_id, EngagementPhase.REVIEW.value)
             await self._log(engagement_id, "Coordinator", "Live URL received. Handing off to PM Agent for QA.")
 
-            pm_payload = {**payload, "live_url": live_url}
+            pm_payload = {
+                **payload,
+                "live_url": live_url,
+                "brief": data.get("brief", payload.get("brief", "")),
+                "client_name": data.get("clientName", ""),
+            }
+            doc_ref = self.db.collection("engagements").document(engagement_id)
             try:
                 pm = await self.a2a.call("pm", engagement_id=engagement_id, payload=pm_payload)
                 status = pm.output.get("overall_status", "pass") if pm.output else "pass"
-                await self._log(engagement_id, "PM", f"QA complete — {status}. {pm.output.get('client_update', '') if pm.output else ''}")
+                if pm.output:
+                    await doc_ref.update({"_qaReport": pm.output})
+                await self._log(
+                    engagement_id,
+                    "PM",
+                    f"Launch QA complete — {status}. Metrics are on the dashboard.",
+                )
             except Exception as exc:
                 log.warning("coordinator.pm.failed", error=str(exc))
                 await self._log(engagement_id, "PM", "QA review complete. Site ready for launch.")
@@ -250,21 +262,30 @@ class CoordinatorService:
             await self._set_phase(engagement_id, EngagementPhase.LAUNCH.value)
             await self._log(engagement_id, "Coordinator", "QA passed. Handing off to Account Agent.")
 
+            client_email = data.get("clientEmail")
+            account_payload = {**pm_payload, "client_email": client_email}
             try:
-                await self.a2a.call("account", engagement_id=engagement_id, payload=pm_payload)
-                await self._log(engagement_id, "Account", "Launch email and month-one plan ready. Engagement complete.")
+                acc = await self.a2a.call("account", engagement_id=engagement_id, payload=account_payload)
+                if acc.output:
+                    await doc_ref.update({"_accountReport": acc.output})
+                email_status = (acc.output or {}).get("email_status")
+                if email_status in ("sent", "simulated") and client_email:
+                    verb = "emailed" if email_status == "sent" else "drafted (simulated) email of"
+                    await self._log(
+                        engagement_id,
+                        "Account",
+                        f"Launch email and month-one plan ready. {verb.capitalize()} launch announcement to {client_email}.",
+                    )
+                else:
+                    await self._log(engagement_id, "Account", "Launch email and month-one plan ready. Engagement complete.")
             except Exception as exc:
                 log.warning("coordinator.account.failed", error=str(exc))
                 await self._log(engagement_id, "Account", "Post-launch plan ready. Engagement complete.")
 
-            await (
-                self.db.collection("engagements")
-                .document(engagement_id)
-                .update({
-                    "phase": EngagementPhase.OPERATE.value,
-                    "updatedAt": datetime.datetime.utcnow().isoformat() + "Z",
-                })
-            )
+            await doc_ref.update({
+                "phase": EngagementPhase.OPERATE.value,
+                "updatedAt": datetime.datetime.utcnow().isoformat() + "Z",
+            })
             await self._log(engagement_id, "Coordinator", "Engagement complete. Site is live.")
 
         except Exception as exc:
