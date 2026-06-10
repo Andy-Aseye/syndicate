@@ -43,8 +43,13 @@ class A2AClient:
         payload: dict[str, Any],
         *,
         require_approval: bool = False,
+        timeout_s: float | None = None,
     ) -> AgentResult:
-        """Send a task to another agent and wait for its result."""
+        """Send a task to another agent and wait for its result.
+
+        `timeout_s` overrides the client default for slow agents (e.g. Discovery
+        extracting requirements from a long call transcript).
+        """
         if agent_name not in AGENT_REGISTRY:
             raise ValueError(f"Unknown agent {agent_name!r}")
 
@@ -57,6 +62,7 @@ class A2AClient:
                 "require_approval": require_approval,
             },
             headers={"X-Atlas-Caller": "coordinator"},
+            timeout=timeout_s if timeout_s is not None else httpx.USE_CLIENT_DEFAULT,
         )
         response.raise_for_status()
         return AgentResult.model_validate(response.json())

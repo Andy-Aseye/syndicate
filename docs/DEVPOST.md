@@ -24,8 +24,7 @@ Atlas turns a one-paragraph client brief into a launched storefront:
 5. **Developer** kicks off the storefront build in Lovable.
 6. **Launch QA gate** — Atlas pauses again: a human confirms the real Lovable site is live and
    pastes its published URL. That URL drives the rest of the pipeline against the actual site.
-7. **PM** runs a Lighthouse check on the live site and posts the client update to **Slack through
-   our MCP server**.
+7. **PM** runs a Lighthouse check on the live site and surfaces the QA report on the **dashboard**.
 8. **Account** closes out the engagement and moves it to Operate.
 
 The whole run streams live in the dashboard: a phase timeline plus an agent activity feed.
@@ -38,10 +37,8 @@ The whole run streams live in the dashboard: a phase timeline plus an agent acti
 - **A2A (Agent2Agent):** every agent serves a spec-compliant Agent Card at
   `/.well-known/agent-card.json` declaring its name, skills, and capabilities. The Coordinator
   invokes each agent over an `/a2a/invoke` endpoint.
-- **MCP (Model Context Protocol):** a custom `agency-mcp` server exposes agency tools. The PM agent
-  opens an MCP **stdio** session and calls `slack_post_message` for real — a genuine
-  client→server MCP round-trip, not a stubbed tool. If no Slack token is configured it returns a
-  simulated success so the pipeline never breaks.
+- **MCP (Model Context Protocol):** a custom `agency-mcp` server exposes agency tools for future
+  integrations (Shopify, Linear, etc.). Launch QA results are shown on the dashboard.
 - **Human-in-the-loop:** two deliberate gates — strategy approval and launch QA — implemented as
   distinct engagement phases (`paused` and `awaiting_url`) that the dashboard renders as action
   banners.
@@ -60,7 +57,7 @@ Intake form → Coordinator
                 ├─ Designer ──┤
                 ├─ Developer ─┘ → Lovable build
                 │   └─ [human pastes live URL — launch QA gate]
-                ├─ PM ── MCP stdio ──→ agency-mcp ──→ Slack
+                ├─ PM ── Lighthouse QA → dashboard
                 └─ Account → Operate
 ```
 
@@ -73,14 +70,13 @@ Intake form → Coordinator
 - **ADK structured output + tools.** ADK constrains using tools alongside a strict `output_schema`.
   We kept PM's structured `QAReport` and made the MCP/Slack call directly from the service after the
   structured output, instead of as an LlmAgent tool.
-- **Packaging the MCP server into the PM image.** The PM container has to spawn `agency-mcp` over
-  stdio, so the MCP server entry point must install cleanly in the image.
+- **Packaging the MCP server into the PM image.** Deferred — launch QA is dashboard-first for now.
 
 ## What we learned
 
 A2A and MCP are not the same primitive: A2A is how agents discover and call each other, MCP is how
-a single agent reaches external tools. Atlas uses both for what they're each good at. And the
-strongest demos are the honest ones — the human gates make Atlas more credible, not less.
+a single agent reaches external tools. Atlas uses A2A for orchestration; MCP tools ship in the repo
+for extensibility. The strongest demos are the honest ones — the human gates make Atlas more credible, not less.
 
 ## What's next
 

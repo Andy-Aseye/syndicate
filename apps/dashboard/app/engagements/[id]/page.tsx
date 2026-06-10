@@ -3,6 +3,8 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getEngagement } from '@/lib/firestore';
 import LivePhase from '@/components/LivePhase';
+import RequirementsPanel from '@/components/RequirementsPanel';
+import KickoffErrorBanner from '@/components/KickoffErrorBanner';
 
 export default async function EngagementPage({
   params,
@@ -57,8 +59,14 @@ export default async function EngagementPage({
         </div>
       </header>
 
+      {/* Coordinator kickoff failure (with retry) */}
+      {engagement._triggerError && <KickoffErrorBanner engagementId={engagement.id} />}
+
       {/* Real-time Phase timeline & Intercept Gate */}
       <LivePhase engagementId={engagement.id} initialPhase={engagement.phase} initialLovableBuildUrl={engagement.lovableBuildUrl} />
+
+      {/* Structured requirements extracted by Discovery */}
+      <RequirementsPanel engagementId={engagement.id} />
 
       {/* Brief */}
       <section className="mb-10">

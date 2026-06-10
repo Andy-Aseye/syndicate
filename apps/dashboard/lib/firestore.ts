@@ -21,11 +21,14 @@ export interface Engagement {
   clientCompany?: string;
   phase: EngagementPhase;
   brief: string;
+  transcript?: string;
   deployedUrl?: string;
   lovableBuildUrl?: string;
   lovableProjectId?: string;
   createdAt: string;
   updatedAt: string;
+  /** Set when the Coordinator kickoff call failed; cleared on successful retry. */
+  _triggerError?: boolean;
 }
 
 let initialized = false;
@@ -69,7 +72,7 @@ export async function getEngagement(
 
 export async function createEngagement(
   tenantId: string,
-  input: Pick<Engagement, 'clientName' | 'clientEmail' | 'clientCompany' | 'brief'>,
+  input: Pick<Engagement, 'clientName' | 'clientEmail' | 'clientCompany' | 'brief' | 'transcript'>,
 ): Promise<string> {
   const now = new Date().toISOString();
   const ref = await db()
@@ -82,4 +85,12 @@ export async function createEngagement(
       updatedAt: now,
     });
   return ref.id;
+}
+
+/** Mark (or clear) a failed Coordinator kickoff on the engagement doc. */
+export async function setTriggerError(id: string, value: boolean): Promise<void> {
+  await db().collection('engagements').doc(id).update({
+    _triggerError: value,
+    updatedAt: new Date().toISOString(),
+  });
 }

@@ -23,7 +23,7 @@ class QAReport(BaseModel):
     overall_status: str          # "pass" | "needs_fixes" | "blocked"
     checklist: list[str]         # items reviewed, each prefixed with ✅ or ❌
     priority_fixes: list[str]    # P0 issues before client delivery
-    client_update: str           # Slack-ready message the account manager can send
+    client_update: str           # client-ready status update the operator can copy
     next_steps: list[str]        # what happens after QA sign-off
     lighthouse_scores: dict[str, float] | None = None
 
@@ -37,48 +37,11 @@ pm_agent = LlmAgent(
         "Simulate a thorough review: check that the IA matches the strategy, CTAs are "
         "clear, visual direction is consistent, and the site is launch-ready. Be specific "
         "— reference actual pages and components from the strategy. "
-        "Write `client_update` as a friendly, professional Slack message the human "
-        "account manager can copy-paste directly to the client."
+        "Write `client_update` as a friendly, professional message the operator "
+        "can copy-paste to the client."
     ),
     output_schema=QAReport,
 )
-
-
-async def _post_to_slack_via_mcp(text: str, channel: str | None = None) -> str:
-    """Post a client update to Slack by calling the agency-mcp server over stdio.
-
-    This is a genuine MCP client→server round-trip (the Track 1 "agent uses MCP
-    to reach external tools" claim). It is wrapped so any failure degrades to a
-    log line rather than breaking the engagement pipeline. The agency-mcp
-    `slack_post_message` tool itself simulates success when SLACK_BOT_TOKEN is
-    unset, so the demo always completes end-to-end.
-    """
-    try:
-        from mcp import ClientSession, StdioServerParameters
-        from mcp.client.stdio import stdio_client
-
-        channel = channel or os.environ.get("SLACK_CHANNEL", "#client-updates")
-        # Spawn the canonical agency-mcp server (installed entry point).
-        server_params = StdioServerParameters(
-            command=os.environ.get("AGENCY_MCP_COMMAND", "mcp-server-agency"),
-            args=[],
-            env=os.environ.copy(),
-        )
-        async with stdio_client(server_params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                result = await session.call_tool(
-                    "slack_post_message",
-                    {"channel": channel, "text": text},
-                )
-                parts = [
-                    c.text for c in result.content
-                    if getattr(c, "type", None) == "text"
-                ]
-                return " ".join(parts) if parts else "Slack tool returned no text."
-    except Exception as e:  # noqa: BLE001
-        log.warning("pm.mcp_slack_failed", error=str(e))
-        return f"Slack post skipped (MCP call failed: {e})"
 
 
 class PMService:
@@ -106,39 +69,39 @@ class PMService:
 
             lighthouse_scores = None
             if live_url:
+                # Run Lighthouse via Google's PageSpeed Insights API instead of a
+                # local `npx lighthouse` subprocess: the slim PM container has no
+                # Node/Chrome, so the subprocess silently failed in Cloud Run and
+                # scorecards rendered empty. PSI runs Lighthouse in Google's cloud
+                # and returns the same category scores.
                 try:
-                    import subprocess
-                    import json
-                    import tempfile
-                    
-                    log.info("pm.running_lighthouse", url=live_url)
-                    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-                        report_path = tf.name
-                    
-                    cmd = [
-                        "npx", "lighthouse", live_url,
-                        "--output", "json",
-                        "--output-path", report_path,
-                        '--chrome-flags="--headless"',
-                        "--quiet"
-                    ]
-                    # Use a relatively short timeout for testing
-                    subprocess.run(cmd, check=True, timeout=60, capture_output=True)
-                    
-                    with open(report_path, "r") as f:
-                        lh_data = json.load(f)
-                    
-                    cats = lh_data.get("categories", {})
+                    import httpx
+
+                    log.info("pm.running_pagespeed", url=live_url)
+                    params: list[tuple[str, str]] = [("url", live_url), ("strategy", "mobile")]
+                    for cat in ("performance", "accessibility", "best-practices", "seo"):
+                        params.append(("category", cat))
+                    api_key = os.environ.get("PAGESPEED_API_KEY")
+                    if api_key:
+                        params.append(("key", api_key))
+
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(
+                            "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
+                            params=params,
+                            timeout=90.0,
+                        )
+                    resp.raise_for_status()
+                    cats = (resp.json() or {}).get("lighthouseResult", {}).get("categories", {})
                     lighthouse_scores = {
                         "performance": (cats.get("performance", {}).get("score") or 0) * 100,
                         "accessibility": (cats.get("accessibility", {}).get("score") or 0) * 100,
                         "best_practices": (cats.get("best-practices", {}).get("score") or 0) * 100,
                         "seo": (cats.get("seo", {}).get("score") or 0) * 100,
                     }
-                    os.unlink(report_path)
-                    log.info("pm.lighthouse_complete", scores=lighthouse_scores)
+                    log.info("pm.pagespeed_complete", scores=lighthouse_scores)
                 except Exception as e:
-                    log.error("pm.lighthouse_failed", error=str(e), exc_info=True)
+                    log.error("pm.pagespeed_failed", error=str(e), exc_info=True)
 
             prompt_context = (
                 f"Client brief: {brief}\n\n"
@@ -167,13 +130,7 @@ class PMService:
 
             await self.memory.remember(engagement_id, "qa_report", report.model_dump())
 
-            # Genuine MCP usage: push the client-ready update to Slack via the
-            # agency-mcp server. Never blocks the pipeline on failure.
-            slack_result = await _post_to_slack_via_mcp(report.client_update)
-            log.info("pm.slack_posted", engagement_id=engagement_id, result=slack_result)
-
             output = report.model_dump()
-            output["slack_result"] = slack_result
 
             log.info("pm.complete", engagement_id=engagement_id, status=report.overall_status)
             return AgentResult(
@@ -212,11 +169,11 @@ A2AServer(
     app,
     handler=_handler,
     agent_name="pm",
-    description="Runs launch QA (Lighthouse) and posts the client update to Slack via MCP.",
+    description="Runs launch QA (Lighthouse) and produces a structured QA report for the dashboard.",
     skills=[{
         "id": "qa-and-report",
         "name": "QA & Report",
-        "description": "Run Lighthouse against the live site, produce a QA report, and post the client update to Slack via the agency MCP server.",
-        "tags": ["qa", "lighthouse", "mcp", "slack"],
+        "description": "Run Lighthouse against the live site and produce a launch-readiness QA report.",
+        "tags": ["qa", "lighthouse"],
     }],
 )

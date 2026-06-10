@@ -1,5 +1,4 @@
-import { PrimarySidebar } from '@/components/PrimarySidebar';
-import { SecondarySidebar } from '@/components/SecondarySidebar';
+import { Sidebar } from '@/components/Sidebar';
 import { AgentFeed } from '@/components/AgentFeed';
 
 export default function EngagementsLayout({
@@ -9,8 +8,7 @@ export default function EngagementsLayout({
 }) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg">
-      <PrimarySidebar />
-      <SecondarySidebar />
+      <Sidebar />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {children}

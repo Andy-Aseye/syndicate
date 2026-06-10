@@ -1,5 +1,7 @@
 # Atlas — Architecture
 
+*Parts of this document describe the planned full system; see [README.md](../README.md) for what is implemented in the current submission.*
+
 ## System diagram
 
 See the Mermaid diagram in [README.md](../README.md#architecture). The Devpost submission uses a polished Excalidraw export of the same topology.
@@ -9,7 +11,7 @@ See the Mermaid diagram in [README.md](../README.md#architecture). The Devpost s
 A single client engagement walks the following sequence. Each arrow is an A2A call; each box is a separate Cloud Run service.
 
 ```
-Client (voice / Slack / web form)
+Client (web intake form)
     │
     ▼
 Dashboard /engagements/new ──── creates Engagement doc in Firestore
@@ -17,13 +19,13 @@ Dashboard /engagements/new ──── creates Engagement doc in Firestore
     ▼
 Coordinator (state machine)
     │
-    ├─► Discovery (Gemini Live or paste-transcript fallback)
+    ├─► Discovery (gemini-2.5-pro; structured requirements from the brief)
     │       └─ writes Requirements to Memory Bank
     │
-    ├─► Strategy (Gemini 3 Pro, output_schema=Plan)
+    ├─► Strategy (gemini-2.5-pro, output_schema=Plan)
     │       └─ writes Plan (including build_scope_lovable_prompt) to Memory Bank
     │
-    ├─► Designer (Nano Banana Pro → hero imagery + design tokens)
+    ├─► Designer (gemini-2.5-flash + imagen-3.0 → hero imagery + design tokens)
     │       └─ writes design.tokens to Memory Bank
     │
     ├─► Developer (LovableClient.build() with the Strategy prompt + Designer tokens)
@@ -31,10 +33,10 @@ Coordinator (state machine)
     │       ├─ poll until ready
     │       └─ writes live_url to Memory Bank + Engagement.deployedUrl
     │
-    ├─► PM (Lighthouse audit, Slack digest, Linear blockers)
+    ├─► PM (Lighthouse QA → dashboard QA report)
     │       └─ writes review notes to Memory Bank
     │
-    └─► Account (long-running; weekly QBR draft, upsell radar)
+    └─► Account (launch email via agency-mcp send_email → Resend; 30-day plan)
             └─ Memory Profiles for per-client recall
 ```
 

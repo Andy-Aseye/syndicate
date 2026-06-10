@@ -9,11 +9,14 @@ Run:
 from __future__ import annotations
 
 import os
+import re
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from google.adk.agents import LlmAgent
+from google.adk.tools import google_search, url_context
 from pydantic import BaseModel
 
 from agents.shared import (
@@ -27,6 +30,8 @@ from agents.shared import (
 
 log = get_logger("discovery")
 tracer = setup_tracing("atlas-discovery")
+
+_URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 
 
 class Requirements(BaseModel):
@@ -59,6 +64,66 @@ extraction_agent = LlmAgent(
     ),
     output_schema=Requirements,
 )
+
+
+# ---------------------------------------------------------------------------
+# Research grounding — a tool-using sub-agent (NO output_schema) that fetches
+# real context before extraction. ADK constraint: output_schema + tools is
+# unreliable on Gemini 2.5, and only one built-in tool is allowed per agent,
+# so we pick url_context (when the brief names a URL) OR google_search.
+# ---------------------------------------------------------------------------
+_MODEL_PRO = os.environ.get("GEMINI_MODEL_PRO", "gemini-2.5-pro")
+
+
+async def _research_context(brief: str, client_company: str | None) -> str:
+    """Ground discovery in the client's real business. Returns a research
+    summary (or "" if research is unavailable/fails — never raises)."""
+    match = _URL_RE.search(brief or "")
+    url = match.group(0).rstrip(".,") if match else None
+
+    try:
+        if url:
+            research_agent = LlmAgent(
+                name="discovery_research_url",
+                model=_MODEL_PRO,
+                instruction=(
+                    "You are a research assistant for a digital agency. Fetch the "
+                    "provided URL and summarize the business: what they do, their "
+                    "products/services, target audience, tone/brand voice, and any "
+                    "visual style cues. Be factual and concise; do not invent details."
+                ),
+                tools=[url_context],
+            )
+            prompt = f"Fetch and summarize this site: {url}\n\nClient brief: {brief}"
+        else:
+            query_subject = client_company or (brief[:120] if brief else "")
+            if not query_subject.strip():
+                return ""
+            research_agent = LlmAgent(
+                name="discovery_research_search",
+                model=_MODEL_PRO,
+                instruction=(
+                    "You are a research assistant for a digital agency. Use Google "
+                    "Search to research the company and summarize: what they do, their "
+                    "products/services, target audience, tone/brand voice, and any "
+                    "visual style cues. Be factual and concise; do not invent details. "
+                    "If you cannot find the company, say so briefly."
+                ),
+                tools=[google_search],
+            )
+            prompt = (
+                f"Research this company and summarize its business.\n"
+                f"Company: {query_subject}\nClient brief: {brief}"
+            )
+
+        result = await run_agent(research_agent, prompt)
+        summary = result.output if isinstance(result.output, str) else None
+        if summary and summary.strip():
+            log.info("discovery.research_complete", grounded_via="url" if url else "search")
+            return summary.strip()
+    except Exception as exc:  # never block discovery on research failure
+        log.warning("discovery.research_failed", error=str(exc))
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -108,8 +173,21 @@ class DiscoveryService:
                     error_message="No transcript, brief, or phone provided.",
                 )
 
+            # Ground the extraction in the client's real business (ADK built-in
+            # tools: url_context when the brief names a URL, else google_search).
+            research_summary = await _research_context(
+                transcript, payload.get("client_company") or payload.get("clientCompany")
+            )
+            extraction_input = transcript
+            if research_summary:
+                extraction_input = (
+                    f"{transcript}\n\n"
+                    f"--- Research findings (grounding; treat as factual context) ---\n"
+                    f"{research_summary}"
+                )
+
             # Extract structured requirements.
-            response = await run_agent(extraction_agent, transcript)
+            response = await run_agent(extraction_agent, extraction_input)
             requirements: Requirements | None = response.output
 
             if requirements is None:
@@ -189,3 +267,84 @@ A2AServer(
         "tags": ["intake", "requirements"],
     }],
 )
+
+
+# ---------------------------------------------------------------------------
+# Audio transcription — additive endpoint used by the dashboard intake form.
+# Accepts the raw audio bytes as the request body (Content-Type = audio mime)
+# rather than multipart, so no extra dependency (python-multipart) is needed.
+# Auth/transport: the dashboard's authenticated API route proxies to this.
+# ---------------------------------------------------------------------------
+_MAX_AUDIO_BYTES = 20 * 1024 * 1024  # ~20MB inline limit
+
+# Map common browser/file mime types onto what Gemini accepts.
+_AUDIO_MIME_MAP = {
+    "audio/mpeg": "audio/mp3",
+    "audio/mp3": "audio/mp3",
+    "audio/mp4": "audio/mp4",
+    "audio/m4a": "audio/mp4",
+    "audio/x-m4a": "audio/mp4",
+    "audio/aac": "audio/aac",
+    "audio/wav": "audio/wav",
+    "audio/x-wav": "audio/wav",
+    "audio/wave": "audio/wav",
+}
+
+_TRANSCRIPTION_PROMPT = (
+    "Transcribe this audio recording of a client discovery call verbatim. "
+    "Output ONLY the transcript text — no preamble, no commentary, no markdown "
+    "fences. If you can distinguish multiple speakers, prefix their lines with "
+    "'Speaker 1:', 'Speaker 2:', etc."
+)
+
+
+@app.post("/transcribe")
+async def transcribe_audio(request: Request):
+    """Transcribe an uploaded audio file (mp3/m4a/wav) with Gemini."""
+    raw_mime = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    mime = _AUDIO_MIME_MAP.get(raw_mime)
+    if not mime:
+        return JSONResponse(
+            status_code=415,
+            content={"error": f"Unsupported audio type '{raw_mime}'. Use mp3, m4a, or wav."},
+        )
+
+    data = await request.body()
+    if not data:
+        return JSONResponse(status_code=400, content={"error": "Empty request body."})
+    if len(data) > _MAX_AUDIO_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"error": "Audio file too large (max ~20MB)."},
+        )
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        # Respects GOOGLE_GENAI_USE_VERTEXAI / GOOGLE_CLOUD_PROJECT /
+        # GOOGLE_CLOUD_LOCATION (or GEMINI_API_KEY) — same auth path as the
+        # rest of the agents.
+        client = genai.Client()
+        model = os.environ.get("GEMINI_MODEL_FLASH", "gemini-2.5-flash")
+        response = await client.aio.models.generate_content(
+            model=model,
+            contents=[
+                types.Part.from_bytes(data=data, mime_type=mime),
+                _TRANSCRIPTION_PROMPT,
+            ],
+        )
+        transcript = (response.text or "").strip()
+        if not transcript:
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Transcription returned no text. Try again or paste the transcript."},
+            )
+        log.info("discovery.transcribe_complete", bytes=len(data), chars=len(transcript))
+        return {"transcript": transcript}
+    except Exception as exc:  # noqa: BLE001 — degrade to a clear client error
+        log.error("discovery.transcribe_failed", error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Transcription failed. Try again or paste the transcript."},
+        )

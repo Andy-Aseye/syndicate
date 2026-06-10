@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ApprovalBanner from './ApprovalBanner';
 import LiveUrlGate from './LiveUrlGate';
+import LaunchDeliverables from './LaunchDeliverables';
 
 const PHASE_ORDER = [
   'intake',
@@ -107,6 +108,7 @@ export default function LivePhase({ engagementId, initialPhase, initialLovableBu
       {/* Human-in-the-Loop Intercept Gates */}
       <ApprovalBanner engagementId={engagementId} phase={phase} />
       <LiveUrlGate engagementId={engagementId} phase={phase} lovableBuildUrl={lovableBuildUrl} />
+      <LaunchDeliverables engagementId={engagementId} phase={phase} />
     </>
   );
 }

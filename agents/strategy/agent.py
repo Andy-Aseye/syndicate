@@ -78,13 +78,29 @@ class StrategyService:
                 # Fallback: accept requirements directly from the payload (e.g. when
                 # coordinator passes disc_output after a failed/mock discovery run).
                 requirements = {k: v for k, v in payload.items() if k != "engagement_id"}
+                # Guard: a fallback payload like {"brief": "", "extracted": False}
+                # is a non-empty dict but contains zero client content. Feeding it
+                # to the LLM forces a schema-complete Plan for a client the model
+                # has to invent. Refuse instead.
+                substantive = {
+                    k: v
+                    for k, v in requirements.items()
+                    if k != "extracted"
+                    and (v.strip() if isinstance(v, str) else v)
+                }
+                if not substantive:
+                    requirements = {}
             if not requirements:
                 return AgentResult(
                     agent_name="strategy",
                     engagement_id=engagement_id,
                     status="error",
                     output={},
-                    error_message="No requirements found in memory or payload.",
+                    error_message=(
+                        "No usable requirements: nothing in Memory Bank and the "
+                        "payload carried no brief or transcript. Refusing to "
+                        "generate a plan from empty context."
+                    ),
                 )
 
             response = await run_agent(
