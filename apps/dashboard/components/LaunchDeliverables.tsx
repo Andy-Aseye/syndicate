@@ -131,6 +131,11 @@ export default function LaunchDeliverables({
   if (!showQa && !showLaunchPack) return null;
   if (!qa && !launchPack) return null;
 
+  const hasBlockers =
+    !!qa &&
+    (qa.overall_status === 'blocked' ||
+      Object.values(qa.lighthouse_scores ?? {}).some((score) => score < 70));
+
   return (
     <div className="mb-10 space-y-8">
       {qa && (
@@ -143,6 +148,21 @@ export default function LaunchDeliverables({
               {qa.overall_status.replace('_', ' ')}
             </span>
           </div>
+
+          {hasBlockers && (
+            <div
+              className={`mb-5 rounded border px-4 py-3 flex items-center gap-3 ${
+                qa.overall_status === 'blocked'
+                  ? 'border-red-500/50 bg-red-500/10 text-red-300'
+                  : 'border-amber-500/50 bg-amber-500/10 text-amber-300'
+              }`}
+            >
+              <span className="text-lg" aria-hidden>⚠</span>
+              <p className="text-sm font-bold">
+                Launch QA flagged blockers — review before going live.
+              </p>
+            </div>
+          )}
 
           {qa.lighthouse_scores && Object.keys(qa.lighthouse_scores).length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

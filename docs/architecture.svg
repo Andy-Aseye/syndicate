@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" font-family="'SF Pro Display','Segoe UI',Inter,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5B78A6"/>
+    </marker>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#F5B83D"/>
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2BD4A4"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1920" height="1080" fill="#0B0F19"/>
+
+  <!-- Title -->
+  <text x="70" y="58" font-size="38" font-weight="700" fill="#F2F5FB">Atlas</text>
+  <text x="178" y="58" font-size="20" fill="#8A96AD">&#8212; the operations layer for the AI-native agency</text>
+  <text x="70" y="92" font-size="15" fill="#98A2B8">Six specialist ADK agents + a deterministic Coordinator over A2A &#183; custom MCP server &#183; Lovable Build-with-URL &#183; deployed on Cloud Run</text>
+
+  <!-- Legend (top right) -->
+  <rect x="1380" y="44" width="26" height="14" rx="3" fill="#241B0A" stroke="#F5B83D" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="1416" y="56" font-size="13" fill="#98A2B8">Human-in-the-loop gate (the differentiator)</text>
+  <rect x="1380" y="72" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="1423" y="86" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="1476" y="86" font-size="13" fill="#98A2B8">A2A 1.0 spec-compliant, served at /.well-known/agent-card.json</text>
+
+  <!-- ================= OPERATOR LAYER ================= -->
+  <rect x="50" y="118" width="1820" height="170" rx="14" fill="#0F1626" stroke="#1C2940" stroke-width="1.5"/>
+  <text x="74" y="144" font-size="12" font-weight="700" fill="#5D6B85" letter-spacing="2">OPERATOR</text>
+
+  <!-- Dashboard box -->
+  <rect x="90" y="158" width="520" height="104" rx="10" fill="#131C30" stroke="#28385A" stroke-width="1.5"/>
+  <rect x="90" y="158" width="520" height="3" rx="1.5" fill="#4C8DFF"/>
+  <text x="110" y="190" font-size="16" font-weight="700" fill="#E8EDF7">Next.js dashboard <tspan font-weight="400" fill="#98A2B8" font-size="13">(Clerk auth)</tspan></text>
+  <text x="110" y="216" font-size="12.5" fill="#98A2B8">Live AgentFeed streamed from Firestore</text>
+  <text x="110" y="236" font-size="12.5" fill="#98A2B8">Phase timeline &#183; ApprovalBanner &#183; LiveUrlGate &#183; QA panel</text>
+
+  <!-- Gate 1 callout -->
+  <rect x="700" y="158" width="520" height="104" rx="10" fill="#241B0A" stroke="#F5B83D" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="720" y="190" font-size="16" font-weight="700" fill="#FBBF24">HUMAN GATE 1 &#8212; Strategy approval</text>
+  <text x="720" y="216" font-size="12.5" fill="#C9A86A">Pipeline pauses (phase: paused) until the operator</text>
+  <text x="720" y="236" font-size="12.5" fill="#C9A86A">reviews the plan and clicks Approve</text>
+
+  <!-- Gate 2 callout -->
+  <rect x="1280" y="158" width="540" height="104" rx="10" fill="#241B0A" stroke="#F5B83D" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="1300" y="190" font-size="16" font-weight="700" fill="#FBBF24">HUMAN GATE 2 &#8212; Launch-QA URL</text>
+  <text x="1300" y="216" font-size="12.5" fill="#C9A86A">Pipeline holds (phase: awaiting_url) until the operator</text>
+  <text x="1300" y="236" font-size="12.5" fill="#C9A86A">pastes the published Lovable URL &#8594; real Lighthouse QA</text>
+
+  <!-- Operator -> Coordinator connectors -->
+  <path d="M 350 262 L 350 302 L 830 302 L 830 350" fill="none" stroke="#46618C" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="380" y="296" font-size="11.5" fill="#7C8AA5">intake form creates engagement</text>
+  <path d="M 960 262 L 960 350" fill="none" stroke="#F5B83D" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#arrowAmber)"/>
+  <text x="972" y="316" font-size="11.5" fill="#C9A86A">approve &#8594; resume</text>
+  <path d="M 1550 262 L 1550 302 L 1090 302 L 1090 350" fill="none" stroke="#F5B83D" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#arrowAmber)"/>
+  <text x="1160" y="296" font-size="11.5" fill="#C9A86A">paste URL &#8594; resume</text>
+
+  <!-- ================= ORCHESTRATION LAYER ================= -->
+  <rect x="50" y="316" width="1820" height="398" rx="14" fill="#0F1626" stroke="#1C2940" stroke-width="1.5"/>
+  <text x="74" y="342" font-size="12" font-weight="700" fill="#5D6B85" letter-spacing="2">ORCHESTRATION &#8212; A2A</text>
+
+  <!-- Coordinator -->
+  <rect x="680" y="356" width="560" height="92" rx="10" fill="#15243F" stroke="#3D5FA0" stroke-width="2"/>
+  <rect x="680" y="356" width="560" height="3" rx="1.5" fill="#4C8DFF"/>
+  <text x="704" y="388" font-size="18" font-weight="700" fill="#E8EDF7">Coordinator <tspan font-weight="400" font-size="14" fill="#98A2B8">&#8212; deterministic state machine (no LLM)</tspan></text>
+  <text x="704" y="412" font-size="12.5" fill="#98A2B8">Sole writer of Engagement.phase &#183; persists phase + logs to Firestore</text>
+  <text x="704" y="432" font-size="12.5" fill="#98A2B8">Sequences the pipeline and runs both human gates</text>
+
+  <!-- Coordinator -> agents fan -->
+  <path d="M 705 448 L 222.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M 807 448 L 517.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M 909 448 L 812.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M 1011 448 L 1107.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M 1113 448 L 1402.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <path d="M 1215 448 L 1697.5 532" fill="none" stroke="#46618C" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- A2A label pill -->
+  <rect x="744" y="478" width="432" height="28" rx="14" fill="#101B30" stroke="#2B3D63" stroke-width="1"/>
+  <text x="960" y="497" font-size="13" font-weight="600" fill="#8FB6FF" text-anchor="middle">A2A &#8212; POST /a2a/invoke (every hop is an A2A task call)</text>
+
+  <!-- Agent boxes: y=540, h=140, w=265, x = 90,385,680,975,1270,1565 -->
+  <!-- Discovery -->
+  <rect x="90" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="90" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="259" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="302" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="106" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Discovery</text>
+  <text x="106" y="620" font-size="12" fill="#86A9FF">gemini-2.5-pro</text>
+  <text x="106" y="644" font-size="12" fill="#98A2B8">Extracts goals, audience,</text>
+  <text x="106" y="662" font-size="12" fill="#98A2B8">constraints from the brief</text>
+
+  <!-- Strategy -->
+  <rect x="385" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="385" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="554" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="597" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="401" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Strategy</text>
+  <text x="401" y="620" font-size="12" fill="#86A9FF">gemini-2.5-pro</text>
+  <text x="401" y="644" font-size="12" fill="#98A2B8">Positioning, plan, budget &#8212;</text>
+  <text x="401" y="662" font-size="12" fill="#98A2B8">reviewed at human gate 1</text>
+
+  <!-- Designer -->
+  <rect x="680" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="680" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="849" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="892" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="696" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Designer</text>
+  <text x="696" y="620" font-size="12" fill="#86A9FF">gemini-2.5-flash + imagen-3.0</text>
+  <text x="696" y="644" font-size="12" fill="#98A2B8">Brand tokens + Imagen 3</text>
+  <text x="696" y="662" font-size="12" fill="#98A2B8">hero imagery</text>
+
+  <!-- Developer -->
+  <rect x="975" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="975" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="1144" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="1187" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="991" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Developer</text>
+  <text x="991" y="620" font-size="12" fill="#86A9FF">prompt assembly (no LLM)</text>
+  <text x="991" y="644" font-size="12" fill="#98A2B8">Assembles the Lovable prompt</text>
+  <text x="991" y="662" font-size="12" fill="#98A2B8">and kicks off the build</text>
+
+  <!-- PM -->
+  <rect x="1270" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="1270" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="1439" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="1482" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="1286" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Project Manager</text>
+  <text x="1286" y="620" font-size="12" fill="#86A9FF">gemini-2.5-flash</text>
+  <text x="1286" y="644" font-size="12" fill="#98A2B8">Lighthouse QA on the live URL</text>
+  <text x="1286" y="662" font-size="12" fill="#98A2B8">QA report surfaced on the dashboard</text>
+
+  <!-- Account -->
+  <rect x="1565" y="540" width="265" height="140" rx="10" fill="#121C33" stroke="#2B3D63" stroke-width="1.5"/>
+  <rect x="1565" y="540" width="265" height="3" rx="1.5" fill="#4C8DFF"/>
+  <rect x="1734" y="552" width="86" height="20" rx="10" fill="#1B2A4A" stroke="#3D5FA0" stroke-width="1"/>
+  <text x="1777" y="566" font-size="9.5" font-weight="600" fill="#9DBCFF" text-anchor="middle" letter-spacing="0.5">AGENT CARD</text>
+  <text x="1581" y="596" font-size="17" font-weight="700" fill="#E8EDF7">Account Manager</text>
+  <text x="1581" y="620" font-size="12" fill="#86A9FF">gemini-2.5-flash</text>
+  <text x="1581" y="644" font-size="12" fill="#98A2B8">Launch email via agency-mcp</text>
+  <text x="1581" y="662" font-size="12" fill="#98A2B8">+ 30-day account plan</text>
+
+  <!-- Agent -> tool connectors (elbow routes) -->
+  <path d="M 1107.5 680 L 1107.5 720 L 290 720 L 290 776" fill="none" stroke="#2E6B5C" stroke-width="1.8" marker-end="url(#arrowTeal)"/>
+  <text x="620" y="713" font-size="11.5" fill="#5FA892">Build-with-URL</text>
+  <path d="M 1372 680 L 1372 732 L 740 732 L 740 776" fill="none" stroke="#2E6B5C" stroke-width="1.8" marker-end="url(#arrowTeal)"/>
+  <path d="M 1697.5 680 L 1697.5 760 L 1190 760 L 1190 776" fill="none" stroke="#2E6B5C" stroke-width="1.8" marker-end="url(#arrowTeal)"/>
+  <text x="1712" y="724" font-size="11.5" fill="#5FA892">MCP (stdio)</text>
+
+  <!-- ================= TOOLS / EXTERNAL ================= -->
+  <rect x="50" y="744" width="1820" height="140" rx="14" fill="#0F1626" stroke="#1C2940" stroke-width="1.5"/>
+  <text x="74" y="770" font-size="12" font-weight="700" fill="#5D6B85" letter-spacing="2">TOOLS &amp; EXTERNAL</text>
+
+  <rect x="90" y="780" width="400" height="70" rx="10" fill="#0F2220" stroke="#245247" stroke-width="1.5"/>
+  <rect x="90" y="780" width="400" height="3" rx="1.5" fill="#2BD4A4"/>
+  <text x="110" y="808" font-size="14.5" font-weight="700" fill="#E8EDF7">Lovable</text>
+  <text x="110" y="832" font-size="11.5" fill="#98A2B8">Build-with-URL API &#8212; builds the client storefront</text>
+
+  <rect x="540" y="780" width="400" height="70" rx="10" fill="#0F2220" stroke="#245247" stroke-width="1.5"/>
+  <rect x="540" y="780" width="400" height="3" rx="1.5" fill="#2BD4A4"/>
+  <text x="560" y="808" font-size="14.5" font-weight="700" fill="#E8EDF7">Lighthouse</text>
+  <text x="560" y="832" font-size="11.5" fill="#98A2B8">Launch-QA audit against the pasted live URL</text>
+
+  <rect x="990" y="780" width="400" height="70" rx="10" fill="#0F2220" stroke="#245247" stroke-width="1.5"/>
+  <rect x="990" y="780" width="400" height="3" rx="1.5" fill="#2BD4A4"/>
+  <text x="1010" y="808" font-size="14.5" font-weight="700" fill="#E8EDF7">agency-mcp <tspan font-weight="400" font-size="12" fill="#98A2B8">(custom MCP server)</tspan></text>
+  <text x="1010" y="832" font-size="11.5" fill="#98A2B8">Email tool live &#183; Slack / Shopify / Linear stubbed</text>
+
+  <rect x="1440" y="780" width="380" height="70" rx="10" fill="#0F2220" stroke="#245247" stroke-width="1.5"/>
+  <rect x="1440" y="780" width="380" height="3" rx="1.5" fill="#2BD4A4"/>
+  <text x="1460" y="808" font-size="14.5" font-weight="700" fill="#E8EDF7">Email</text>
+  <text x="1460" y="832" font-size="11.5" fill="#98A2B8">Launch-day client email (send_email &#8594; Resend)</text>
+
+  <!-- MCP -> Email -->
+  <path d="M 1390 815 L 1432 815" fill="none" stroke="#2E6B5C" stroke-width="1.8" marker-end="url(#arrowTeal)"/>
+
+  <!-- ================= PLATFORM STRIP ================= -->
+  <rect x="50" y="912" width="1820" height="118" rx="14" fill="#0F1626" stroke="#1C2940" stroke-width="1.5"/>
+  <text x="74" y="938" font-size="12" font-weight="700" fill="#5D6B85" letter-spacing="2">PLATFORM &#8212; GOOGLE CLOUD</text>
+
+  <rect x="90" y="950" width="400" height="70" rx="10" fill="#151823" stroke="#2A2F3F" stroke-width="1.5"/>
+  <rect x="90" y="950" width="400" height="3" rx="1.5" fill="#8A93A8"/>
+  <text x="110" y="978" font-size="14.5" font-weight="700" fill="#E8EDF7">Cloud Run</text>
+  <text x="110" y="1002" font-size="11.5" fill="#98A2B8">One service per agent + the dashboard</text>
+
+  <rect x="540" y="950" width="460" height="70" rx="10" fill="#151823" stroke="#2A2F3F" stroke-width="1.5"/>
+  <rect x="540" y="950" width="460" height="3" rx="1.5" fill="#8A93A8"/>
+  <text x="560" y="978" font-size="14.5" font-weight="700" fill="#E8EDF7">Firestore</text>
+  <text x="560" y="1002" font-size="11.5" fill="#98A2B8">Multi-tenant engagements &#183; agent logs &#183; memory bank</text>
+
+  <rect x="1050" y="950" width="330" height="70" rx="10" fill="#151823" stroke="#2A2F3F" stroke-width="1.5"/>
+  <rect x="1050" y="950" width="330" height="3" rx="1.5" fill="#8A93A8"/>
+  <text x="1070" y="978" font-size="14.5" font-weight="700" fill="#E8EDF7">Cloud Build</text>
+  <text x="1070" y="1002" font-size="11.5" fill="#98A2B8">CI/CD for every service</text>
+
+  <rect x="1430" y="950" width="390" height="70" rx="10" fill="#151823" stroke="#2A2F3F" stroke-width="1.5"/>
+  <rect x="1430" y="950" width="390" height="3" rx="1.5" fill="#8A93A8"/>
+  <text x="1450" y="978" font-size="14.5" font-weight="700" fill="#E8EDF7">IAM service accounts</text>
+  <text x="1450" y="1002" font-size="11.5" fill="#98A2B8">Per-agent identity, least privilege</text>
+</svg>

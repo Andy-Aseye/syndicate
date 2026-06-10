@@ -96,22 +96,59 @@ class CoordinatorService:
             await self._set_phase(engagement_id, EngagementPhase.INTAKE.value)
             await self._log(engagement_id, "Coordinator", "New engagement started. Handing off to Discovery Agent.")
 
+            # Raw client material — preserved verbatim on every path so downstream
+            # agents always have the real context, even if Discovery fails.
+            raw_brief = payload.get("brief", "") or ""
+            raw_transcript = payload.get("transcript", "") or ""
+            fallback_output = {
+                "brief": raw_brief,
+                "transcript": raw_transcript,
+                "extracted": False,
+            }
+
             try:
-                disc = await self.a2a.call("discovery", engagement_id=engagement_id, payload=payload)
+                disc = await self.a2a.call(
+                    "discovery",
+                    engagement_id=engagement_id,
+                    payload=payload,
+                    # Extracting requirements from a long call transcript can take
+                    # several minutes — well past the 180s client default.
+                    timeout_s=420.0,
+                )
                 disc_output = disc.output
-                # If Discovery returned an error, fall back to raw brief.
+                # If Discovery returned an error, fall back to the raw material.
                 if disc.status == "error" or not disc_output:
-                    await self._log(engagement_id, "Discovery", "Analyzed client brief. Identified core requirements.")
-                    disc_output = {"brief": payload.get("brief", ""), "extracted": False}
+                    await self._log(
+                        engagement_id,
+                        "Discovery",
+                        "Couldn't extract structured requirements — continuing with the raw brief/transcript.",
+                    )
+                    disc_output = dict(fallback_output)
                 else:
                     await self._log(engagement_id, "Discovery", "Analyzed client brief. Extracted structured requirements.")
+                    # Snapshot the structured requirements onto the engagement doc
+                    # so the dashboard can render them (mirrors _qaReport).
+                    try:
+                        await (
+                            self.db.collection("engagements")
+                            .document(engagement_id)
+                            .update({"_requirements": disc_output})
+                        )
+                    except Exception as exc:
+                        log.warning("coordinator.requirements.snapshot_failed", error=str(exc))
             except Exception as exc:
                 log.warning("coordinator.discovery.failed", error=str(exc))
-                await self._log(engagement_id, "Discovery", "Analyzed client brief. Identified core requirements.")
-                disc_output = {"brief": payload.get("brief", ""), "extracted": False}
+                await self._log(
+                    engagement_id,
+                    "Discovery",
+                    "Discovery took longer than expected — continuing with the raw brief/transcript.",
+                )
+                disc_output = dict(fallback_output)
 
-            # Always carry the original brief so downstream agents have context.
-            disc_output.setdefault("brief", payload.get("brief", ""))
+            # Always carry the original material so downstream agents have context.
+            disc_output.setdefault("brief", raw_brief)
+            if raw_transcript:
+                disc_output.setdefault("transcript", raw_transcript)
 
             # ── Strategy ─────────────────────────────────────────────────────
             await self._set_phase(engagement_id, EngagementPhase.STRATEGY.value)
@@ -121,13 +158,22 @@ class CoordinatorService:
                 strat = await self.a2a.call("strategy", engagement_id=engagement_id, payload=disc_output)
                 strat_output = strat.output
                 if strat.status == "error" or not strat_output:
-                    await self._log(engagement_id, "Strategy", "Drafted strategy with landing page as P0. Ready for your review.")
+                    await self._log(
+                        engagement_id,
+                        "Strategy",
+                        f"Plan generation failed ({strat.error_message or 'no output'}). "
+                        "Using a default scope — please review carefully before approving.",
+                    )
                     strat_output = {"strategy": "default", "engagement_id": engagement_id, **disc_output}
                 else:
                     await self._log(engagement_id, "Strategy", "Drafted marketing strategy and technical plan. Ready for your review.")
             except Exception as exc:
                 log.warning("coordinator.strategy.failed", error=str(exc))
-                await self._log(engagement_id, "Strategy", "Drafted strategy with landing page as P0. Ready for your review.")
+                await self._log(
+                    engagement_id,
+                    "Strategy",
+                    "Plan generation failed. Using a default scope — please review carefully before approving.",
+                )
                 strat_output = {"strategy": "default", "engagement_id": engagement_id, **disc_output}
 
             # ── Human-in-the-loop gate ────────────────────────────────────────

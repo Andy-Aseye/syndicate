@@ -13,7 +13,8 @@ import re
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from google.adk.agents import LlmAgent
 from google.adk.tools import google_search, url_context
 from pydantic import BaseModel
@@ -266,3 +267,84 @@ A2AServer(
         "tags": ["intake", "requirements"],
     }],
 )
+
+
+# ---------------------------------------------------------------------------
+# Audio transcription — additive endpoint used by the dashboard intake form.
+# Accepts the raw audio bytes as the request body (Content-Type = audio mime)
+# rather than multipart, so no extra dependency (python-multipart) is needed.
+# Auth/transport: the dashboard's authenticated API route proxies to this.
+# ---------------------------------------------------------------------------
+_MAX_AUDIO_BYTES = 20 * 1024 * 1024  # ~20MB inline limit
+
+# Map common browser/file mime types onto what Gemini accepts.
+_AUDIO_MIME_MAP = {
+    "audio/mpeg": "audio/mp3",
+    "audio/mp3": "audio/mp3",
+    "audio/mp4": "audio/mp4",
+    "audio/m4a": "audio/mp4",
+    "audio/x-m4a": "audio/mp4",
+    "audio/aac": "audio/aac",
+    "audio/wav": "audio/wav",
+    "audio/x-wav": "audio/wav",
+    "audio/wave": "audio/wav",
+}
+
+_TRANSCRIPTION_PROMPT = (
+    "Transcribe this audio recording of a client discovery call verbatim. "
+    "Output ONLY the transcript text — no preamble, no commentary, no markdown "
+    "fences. If you can distinguish multiple speakers, prefix their lines with "
+    "'Speaker 1:', 'Speaker 2:', etc."
+)
+
+
+@app.post("/transcribe")
+async def transcribe_audio(request: Request):
+    """Transcribe an uploaded audio file (mp3/m4a/wav) with Gemini."""
+    raw_mime = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    mime = _AUDIO_MIME_MAP.get(raw_mime)
+    if not mime:
+        return JSONResponse(
+            status_code=415,
+            content={"error": f"Unsupported audio type '{raw_mime}'. Use mp3, m4a, or wav."},
+        )
+
+    data = await request.body()
+    if not data:
+        return JSONResponse(status_code=400, content={"error": "Empty request body."})
+    if len(data) > _MAX_AUDIO_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"error": "Audio file too large (max ~20MB)."},
+        )
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        # Respects GOOGLE_GENAI_USE_VERTEXAI / GOOGLE_CLOUD_PROJECT /
+        # GOOGLE_CLOUD_LOCATION (or GEMINI_API_KEY) — same auth path as the
+        # rest of the agents.
+        client = genai.Client()
+        model = os.environ.get("GEMINI_MODEL_FLASH", "gemini-2.5-flash")
+        response = await client.aio.models.generate_content(
+            model=model,
+            contents=[
+                types.Part.from_bytes(data=data, mime_type=mime),
+                _TRANSCRIPTION_PROMPT,
+            ],
+        )
+        transcript = (response.text or "").strip()
+        if not transcript:
+            return JSONResponse(
+                status_code=502,
+                content={"error": "Transcription returned no text. Try again or paste the transcript."},
+            )
+        log.info("discovery.transcribe_complete", bytes=len(data), chars=len(transcript))
+        return {"transcript": transcript}
+    except Exception as exc:  # noqa: BLE001 — degrade to a clear client error
+        log.error("discovery.transcribe_failed", error=str(exc))
+        return JSONResponse(
+            status_code=502,
+            content={"error": "Transcription failed. Try again or paste the transcript."},
+        )

@@ -23,17 +23,21 @@ export async function GET(
     const doc = await getFirestore().collection('engagements').doc(id).get();
 
     if (!doc.exists) {
-      return NextResponse.json({ qa: null, launchPack: null });
+      return NextResponse.json({ qa: null, launchPack: null, requirements: null });
     }
 
     const data = doc.data() || {};
     return NextResponse.json({
       qa: data._qaReport ?? null,
       launchPack: data._accountReport ?? null,
+      requirements: data._requirements ?? null,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'unknown error';
     console.error('[API /deliverables] Error:', message);
-    return NextResponse.json({ qa: null, launchPack: null, error: message }, { status: 500 });
+    return NextResponse.json(
+      { qa: null, launchPack: null, requirements: null, error: message },
+      { status: 500 }
+    );
   }
 }

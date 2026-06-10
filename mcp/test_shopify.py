@@ -1,6 +1,13 @@
+import os
+
 import httpx
 
-token = "prtapi_0a68f4473d29f6ab825d05ae155560ae"
+token = os.environ.get("SHOPIFY_PARTNER_TOKEN")
+if not token:
+    raise SystemExit(
+        "SHOPIFY_PARTNER_TOKEN is not set. Export your Shopify Partner API token "
+        "before running this script, e.g. `export SHOPIFY_PARTNER_TOKEN=prtapi_...`"
+    )
 url = "https://partners.shopify.com/api/2024-01/graphql"
 query = """
 query {
