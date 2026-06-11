@@ -156,7 +156,7 @@ export default function NewEngagementForm() {
         />
 
         {transcribing && (
-          <p className="mt-1.5 text-[11px] text-cyan">
+          <p className="mt-1.5 text-[11px] text-green-500">
             Transcribing with Gemini — this can take up to a minute for longer recordings…
           </p>
         )}

@@ -7,6 +7,7 @@ import RequirementsPanel from '@/components/RequirementsPanel';
 import KickoffErrorBanner from '@/components/KickoffErrorBanner';
 import { ExpandableContent } from '@/components/ExpandableContent';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { ArrowTopRightOnSquareIcon } from '@/components/ui/arrow-top-right-on-square';
 
 export default async function EngagementPage({
   params,
@@ -43,9 +44,9 @@ export default async function EngagementPage({
               href={engagement.lovableBuildUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-1.5 rounded-lg border border-cyan text-cyan text-sm font-medium hover:bg-cyan/10 transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-green-500 text-green-500 text-sm font-medium hover:bg-green-500/10 transition-colors flex items-center gap-1.5"
             >
-              View in Lovable ↗
+              View in Lovable <ArrowTopRightOnSquareIcon size={16} />
             </a>
           )}
           {engagement.deployedUrl && (
@@ -53,9 +54,9 @@ export default async function EngagementPage({
               href={engagement.deployedUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-cyan text-bg text-sm font-medium hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 rounded-lg bg-green-500 text-bg text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
             >
-              Open live site ↗
+              Open live site <ArrowTopRightOnSquareIcon size={16} />
             </a>
           )}
         </div>
@@ -101,9 +102,9 @@ export default async function EngagementPage({
                   href={engagement.lovableBuildUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-cyan font-medium hover:underline"
+                  className="text-xs text-green-500 font-medium hover:underline flex items-center gap-1"
                 >
-                  Open Lovable Builder ↗
+                  Open Lovable Builder <ArrowTopRightOnSquareIcon size={12} />
                 </a>
               )}
             </div>

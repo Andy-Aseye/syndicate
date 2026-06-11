@@ -20,13 +20,13 @@ dev:
 	@trap 'kill %1 %2 %3 %4 %5 %6 %7 %8 %9 2>/dev/null' EXIT; \
 	 firebase emulators:start --only firestore --project project-cc9b6e61-a019-4971-a10 & \
 	 (cd apps/dashboard && npm run dev) & \
-	 (source .venv/bin/activate && uvicorn agents.coordinator.agent:app --env-file .env --reload --port 8080) & \
-	 (source .venv/bin/activate && uvicorn agents.discovery.agent:app --env-file .env --reload --port 8081) & \
-	 (source .venv/bin/activate && uvicorn agents.strategy.agent:app --env-file .env --reload --port 8082) & \
-	 (source .venv/bin/activate && uvicorn agents.designer.agent:app --env-file .env --reload --port 8083) & \
-	 (source .venv/bin/activate && uvicorn agents.developer.agent:app --env-file .env --reload --port 8084) & \
-	 (source .venv/bin/activate && uvicorn agents.pm.agent:app --env-file .env --reload --port 8085) & \
-	 (source .venv/bin/activate && uvicorn agents.account.agent:app --env-file .env --reload --port 8086) & \
+	 (source .venv/bin/activate && uvicorn agents.coordinator.agent:app --env-file .env --reload --reload-dir agents --port 8080) & \
+	 (source .venv/bin/activate && uvicorn agents.discovery.agent:app --env-file .env --reload --reload-dir agents --port 8081) & \
+	 (source .venv/bin/activate && uvicorn agents.strategy.agent:app --env-file .env --reload --reload-dir agents --port 8082) & \
+	 (source .venv/bin/activate && uvicorn agents.designer.agent:app --env-file .env --reload --reload-dir agents --port 8083) & \
+	 (source .venv/bin/activate && uvicorn agents.developer.agent:app --env-file .env --reload --reload-dir agents --port 8084) & \
+	 (source .venv/bin/activate && uvicorn agents.pm.agent:app --env-file .env --reload --reload-dir agents --port 8085) & \
+	 (source .venv/bin/activate && uvicorn agents.account.agent:app --env-file .env --reload --reload-dir agents --port 8086) & \
 	 wait
 
 test:

@@ -23,6 +23,11 @@ Submission for the [Google for Startups AI Agents Challenge 2026](https://devpos
 
 ## Architecture
 
+![Atlas architecture — six specialist ADK agents orchestrated over A2A by a deterministic Coordinator, with two human-in-the-loop gates, a custom MCP server, and Lovable Build-with-URL, deployed on Cloud Run](docs/architecture.png)
+
+<details>
+<summary>Mermaid source (simplified flow)</summary>
+
 ```mermaid
 flowchart TB
     subgraph CLIENT[Client Channel]
@@ -77,7 +82,9 @@ flowchart TB
     COORD --> FS
 ```
 
-Full architecture diagram (for the Devpost submission) → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+</details>
+
+Full architecture write-up (for the Devpost submission) → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 

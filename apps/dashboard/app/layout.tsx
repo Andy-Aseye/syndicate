@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Geist } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'] });
 
@@ -19,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" suppressHydrationWarning>
+      <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
         <body className={`bg-gray-50 dark:bg-bg text-zinc-900 dark:text-white min-h-screen antialiased ${plusJakartaSans.className}`}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}

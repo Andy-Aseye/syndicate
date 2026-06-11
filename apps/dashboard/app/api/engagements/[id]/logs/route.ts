@@ -13,7 +13,7 @@ function ensureInit() {
   }
 }
 
-// GET /api/engagements/[id]/strategy
+// GET /api/engagements/[id]/logs
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,21 +22,34 @@ export async function GET(
   try {
     const { userId, orgId } = await auth();
     if (!userId) {
-      return NextResponse.json({ strategy: null, error: 'unauthenticated' }, { status: 401 });
+      return NextResponse.json({ logs: [], error: 'unauthenticated' }, { status: 401 });
     }
     const tenantId = orgId ?? userId;
 
     ensureInit();
-    const doc = await getFirestore().collection('engagements').doc(id).get();
+    const db = getFirestore();
 
     // Tenant isolation: respond as "not found" for other tenants' engagements.
+    const doc = await db.collection('engagements').doc(id).get();
     if (!doc.exists || doc.data()?.tenantId !== tenantId) {
-      return NextResponse.json({ strategy: null }, { status: 404 });
+      return NextResponse.json({ logs: [] }, { status: 404 });
     }
 
-    return NextResponse.json({ strategy: doc.data()?._strategyOutput ?? null });
+    const snapshot = await db
+      .collection('engagements')
+      .doc(id)
+      .collection('logs')
+      .orderBy('timestamp', 'asc')
+      .get();
+
+    const logs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return NextResponse.json({ logs });
   } catch (e: any) {
-    console.error('[API /strategy] Error:', e.message);
-    return NextResponse.json({ strategy: null, error: e.message }, { status: 500 });
+    console.error('[API /logs] Error:', e.message);
+    return NextResponse.json({ logs: [], error: e.message }, { status: 500 });
   }
 }

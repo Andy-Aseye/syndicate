@@ -27,6 +27,16 @@ const PHASE_LABEL: Record<string, string> = {
   operate: 'Account / Post-launch',
 };
 
+const PHASE_STATUS: Record<string, string> = {
+  intake: 'Discovery agent is gathering your brief and requirements.',
+  strategy: 'Strategy agent is building your positioning and sitemap.',
+  design: 'Designer is creating your visual direction and components.',
+  build: 'Developer is building your site in Lovable.',
+  review: 'PM is reviewing the build against strategy and requirements.',
+  launch: 'Launch agent is running QA and preparing for go-live.',
+  operate: 'Account manager is tracking performance and growth.',
+};
+
 export default function LivePhase({ engagementId, initialPhase, initialLovableBuildUrl }: { engagementId: string, initialPhase: string, initialLovableBuildUrl?: string | null }) {
   const [phase, setPhase] = useState<string>(initialPhase);
   const [lovableBuildUrl, setLovableBuildUrl] = useState<string | null>(initialLovableBuildUrl ?? null);
@@ -78,67 +88,88 @@ export default function LivePhase({ engagementId, initialPhase, initialLovableBu
 
   return (
     <>
-      <section className="mb-10">
+      <section className="mb-8">
         <h2 className="text-[10px] font-bold text-gold uppercase tracking-wider mb-5">
           Engagement Phase
         </h2>
-        <div className="flex items-start w-full">
+
+        {/* Stepper — flex-1 steps keep proportions constant at any container width */}
+        <div className="relative flex w-full" style={{ paddingBottom: 28 }}>
+          {/* Muted track — spans between first and last circle centers */}
+          <div style={{
+            position: 'absolute',
+            top: 8,
+            left: `${100 / (PHASE_ORDER.length * 2)}%`,
+            right: `${100 / (PHASE_ORDER.length * 2)}%`,
+            height: 2,
+            backgroundColor: 'rgba(255,255,255,0.15)',
+          }} />
+          {/* Green progress */}
+          <div style={{
+            position: 'absolute',
+            top: 8,
+            left: `${100 / (PHASE_ORDER.length * 2)}%`,
+            width: adjustedPhaseIndex > 0
+              ? `calc(${(adjustedPhaseIndex / (PHASE_ORDER.length - 1)) * (100 - 100 / PHASE_ORDER.length)}%)`
+              : 0,
+            height: 2,
+            backgroundColor: '#22c55e',
+            transition: 'width 600ms ease',
+          }} />
+
           {PHASE_ORDER.map((p, i) => {
             const isDone = i < adjustedPhaseIndex;
             const isCurrent = i === adjustedPhaseIndex;
-            const isLast = i === PHASE_ORDER.length - 1;
 
             return (
-              <Fragment key={p}>
-                {/* Step */}
-                <div className="flex flex-col items-center flex-shrink-0 w-[62px]">
-                  <div
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      backgroundColor: isDone ? '#22c55e' : isCurrent ? 'rgba(34,211,238,0.12)' : 'transparent',
-                      border: isDone ? 'none' : isCurrent ? '1.5px solid #22c55e' : '1px solid rgba(255,255,255,0.5)',
-                      boxShadow: isCurrent ? '0 0 8px rgba(34,211,238,0.3)' : 'none',
-                      transition: 'all 500ms',
-                    }}
-                  >
-                    {isDone
-                      ? <Check className="w-2.5 h-2.5" style={{ color: '#141416', strokeWidth: 2.5 }} />
-                      : isCurrent
-                      ? <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#22c55e', display: 'block' }} />
-                      : <span className="text-[8px] font-bold text-white/50">{i + 1}</span>
-                    }
-                  </div>
-                  <p
-                    className="mt-1.5 text-[7.5px] font-semibold uppercase tracking-wide text-center leading-tight"
-                    style={{ color: isCurrent ? '#22c55e' : isDone ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)' }}
-                  >
-                    {PHASE_LABEL[p]}
-                  </p>
+              <div key={p} className="flex-1 flex flex-col items-center" style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  backgroundColor: isDone ? '#22c55e' : isCurrent ? 'rgba(34,197,94,0.12)' : '#141416',
+                  border: isDone ? 'none' : isCurrent ? '1.5px solid #22c55e' : '1px solid rgba(255,255,255,0.3)',
+                  boxShadow: isCurrent ? '0 0 8px rgba(34,197,94,0.35)' : 'none',
+                  transition: 'all 500ms',
+                }}>
+                  {isDone
+                    ? <Check className="w-2.5 h-2.5" style={{ color: '#141416', strokeWidth: 2.5 }} />
+                    : isCurrent
+                    ? <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#22c55e', display: 'block' }} />
+                    : null
+                  }
                 </div>
-
-                {/* Connector */}
-                {!isLast && (
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 2,
-                      marginTop: 8,
-                      backgroundColor: isDone ? '#22c55e' : 'rgba(255,255,255,0.2)',
-                      transition: 'background-color 500ms',
-                    }}
-                  />
-                )}
-              </Fragment>
+                <p
+                  className="mt-1.5 text-[7.5px] font-semibold uppercase tracking-wide text-center leading-tight"
+                  style={{
+                    color: isCurrent ? '#22c55e' : isDone ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
+                    position: 'absolute',
+                    top: 22,
+                    width: 62,
+                  }}
+                >
+                  {PHASE_LABEL[p]}
+                </p>
+              </div>
             );
           })}
         </div>
       </section>
+
+      {/* Phase status hint */}
+      <div className="mb-8 flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/5 bg-white/[0.02]">
+        <div
+          className="animate-pulse shrink-0"
+          style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#22c55e' }}
+        />
+        <p className="text-xs text-white/40">
+          {PHASE_STATUS[phase] ?? PHASE_STATUS[PHASE_ORDER[adjustedPhaseIndex]] ?? 'Agent is working…'}
+        </p>
+      </div>
 
       {/* Human-in-the-Loop Intercept Gates */}
       <ApprovalBanner engagementId={engagementId} phase={phase} />

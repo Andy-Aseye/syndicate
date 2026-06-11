@@ -11,6 +11,7 @@
 .env
 .env.local
 .env.*.local
+.env.production
 *.pem
 *.key
 service-account-*.json
@@ -76,4 +77,6 @@ ui-debug.log
 # Logs / runtime artifacts
 # ─────────────────────────────────────────────────────────────────────────────
 *.log
-logs/
+# Root-level runtime log dir only — a bare `logs/` would also ignore
+# source dirs like apps/dashboard/app/api/engagements/[id]/logs/.
+/logs/

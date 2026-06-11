@@ -14,6 +14,7 @@ export default function LiveUrlGate({
 }) {
   const [isPending, startTransition] = useTransition();
   const [liveUrl, setLiveUrl] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   if (phase !== 'awaiting_url') return null;
 
@@ -21,8 +22,12 @@ export default function LiveUrlGate({
 
   const handleSubmit = () => {
     if (!isValid) return;
+    setError(null);
     startTransition(async () => {
-      await submitLiveUrlAction(engagementId, liveUrl.trim());
+      const result = await submitLiveUrlAction(engagementId, liveUrl.trim());
+      if (!result.ok) {
+        setError(result.error ?? 'Submission failed — please retry.');
+      }
     });
   };
 
@@ -55,6 +60,12 @@ export default function LiveUrlGate({
         onChange={(e) => setLiveUrl(e.target.value)}
         disabled={isPending}
       />
+
+      {error && (
+        <p className="mb-3 text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+          {error}
+        </p>
+      )}
 
       <button
         onClick={handleSubmit}

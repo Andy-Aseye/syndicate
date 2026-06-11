@@ -54,10 +54,13 @@ def _coerce_status(tool_text: str) -> str:
     low = tool_text.lower()
     if "[simulated]" in low:
         return "simulated"
-    if "failed" in low or "error" in low:
-        return "failed"
-    if "email sent" in low or "id=" in low:
+    # Check success before generic failure words: a stringified MCP
+    # CallToolResult always contains "isError=False", which would otherwise
+    # match the "error" substring and misreport successful sends as failed.
+    if "email sent" in low:
         return "sent"
+    if "email send failed" in low or "failed" in low or "iserror=true" in low:
+        return "failed"
     return "sent"
 
 
@@ -77,9 +80,18 @@ async def _dispatch_email(
 
     def _after_tool_callback(tool, args, tool_context, tool_response):  # noqa: ANN001, ARG001
         try:
-            captured["text"] = str(tool_response)
+            # MCP tools return a CallToolResult; pull the human-readable text
+            # out of .content instead of str()-ing the whole pydantic model
+            # (whose repr includes "isError=False" and pollutes status parsing).
+            content = getattr(tool_response, "content", None)
+            if content:
+                captured["text"] = " ".join(
+                    getattr(part, "text", "") or "" for part in content
+                ).strip()
+            else:
+                captured["text"] = str(tool_response)
         except Exception:  # pragma: no cover - defensive
-            captured["text"] = ""
+            captured["text"] = str(tool_response)
         return None
 
     try:
@@ -123,7 +135,12 @@ async def _dispatch_email(
             tool_text = result.output
         if tool_text:
             status = _coerce_status(tool_text)
-            log.info("account.email_dispatched", engagement_id=engagement_id, status=status)
+            log.info(
+                "account.email_dispatched",
+                engagement_id=engagement_id,
+                status=status,
+                tool_text=tool_text[:300],
+            )
             return status, client_email
         log.warning("account.email_no_tool_result", engagement_id=engagement_id)
         return "failed", client_email

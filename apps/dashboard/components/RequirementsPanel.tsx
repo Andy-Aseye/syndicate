@@ -90,9 +90,9 @@ export default function RequirementsPanel({ engagementId }: { engagementId: stri
       className="mb-8"
     >
       {requirements.one_liner && (
-        <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3 mb-2">
-          <p className="text-[10px] font-bold text-cyan/70 uppercase tracking-wider mb-1">One-liner</p>
-          <p className="text-xs text-white/90">{requirements.one_liner}</p>
+        <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-3 mb-2">
+          <p className="text-[10px] font-bold text-green-500/70 uppercase tracking-wider mb-1">One-liner</p>
+          <p className="text-sm font-medium text-white">{requirements.one_liner}</p>
         </div>
       )}
 
