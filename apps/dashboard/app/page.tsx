@@ -104,14 +104,14 @@ export default function Home() {
           <div className="w-full">
             <SignedOut>
               <SignInButton>
-                <button className="w-full py-3.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-[0_8px_30px_rgb(5,150,105,0.25)] transition-all hover:-translate-y-0.5 border border-[#059669]/50">
+                <button className="w-full py-3.5 rounded-2xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-[0_8px_30px_rgb(5,150,105,0.25)] transition-all hover:-translate-y-0.5 border border-[#059669]/50">
                   Start Engagement
                 </button>
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <Link href="/engagements/new" className="flex w-full">
-                <button className="w-full py-3.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-[0_8px_30px_rgb(5,150,105,0.25)] transition-all hover:-translate-y-0.5 border border-[#059669]/50">
+              <Link href="/engagements" className="flex w-full">
+                <button className="w-full py-3.5 rounded-2xl bg-[#059669] hover:bg-[#047857] text-white font-bold text-sm shadow-[0_8px_30px_rgb(5,150,105,0.25)] transition-all hover:-translate-y-0.5 border border-[#059669]/50">
                   Start Engagement
                 </button>
               </Link>
