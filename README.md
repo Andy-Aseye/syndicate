@@ -85,7 +85,7 @@ Full architecture diagram (for the Devpost submission) → [docs/ARCHITECTURE.md
 
 ```bash
 # 1. Clone and bootstrap (creates venv, installs deps, sets up Firebase emulator)
-git clone https://github.com/USER/atlas.git
+git clone https://github.com/<GITHUB_USER>/atlas.git
 cd atlas
 ./scripts/bootstrap.sh
 
@@ -114,14 +114,14 @@ atlas/
 │   ├── strategy/               Positioning, plan, budget
 │   ├── designer/               Design tokens + Imagen hero imagery
 │   ├── developer/              Thin wrapper around Lovable Build-with-URL
-│   ├── pm/                     Project Manager (Lighthouse QA + Slack update via MCP)
-│   ├── account/                Account Manager (launch email + 30-day plan)
+│   ├── pm/                     Project Manager (Lighthouse QA + dashboard QA report)
+│   ├── account/                Account Manager (launch email via MCP send_email + 30-day plan)
 │   └── shared/                 Memory Bank wrappers, A2A helpers + Agent Cards, common types
 ├── apps/dashboard/             Next.js operator dashboard (TypeScript + Tailwind + shadcn/ui)
 │   ├── app/                    App Router
 │   ├── components/             shadcn/ui + custom
 │   └── lib/                    Firestore client, Clerk hooks, A2A status fetcher
-├── mcp/                        Custom MCP server (agency-mcp) exposing Shopify/Linear/Slack tools
+├── mcp/                        Custom MCP server (agency-mcp): send_email live; Slack/Shopify/Linear stubs
 ├── infra/                      Terraform + Cloud Build + Firestore rules
 ├── docs/                       Architecture, build plan, Medium draft
 └── scripts/                    bootstrap.sh, seed-client.py, eval-harness.py
@@ -140,13 +140,13 @@ Each agent is a separate ADK module under `agents/`, deployed as its own Cloud R
 | **Strategy** | Generates positioning, IA, plan, budget, timeline | `gemini-2.5-pro` | Produces the plan shown at the approval gate |
 | **Designer** | Brand tokens + hero imagery | `gemini-2.5-flash` + `imagen-3.0-generate-001` | Generates design tokens/visual direction and a hero image |
 | **Developer** | Launches the build via Lovable Build-with-URL | — (prompt assembly) | Assembles a Lovable prompt and initiates the build |
-| **Project Manager** | Launch QA + client comms | `gemini-2.5-flash` | Runs Lighthouse on the live site, drafts the client update, posts it to Slack **via the agency-mcp server** |
-| **Account Manager** | Post-launch handoff | `gemini-2.5-flash` | Drafts the launch email and a 30-day account plan |
+| **Project Manager** | Launch QA + client comms | `gemini-2.5-flash` | Runs Lighthouse on the live site (via PageSpeed Insights), drafts the client update, and surfaces the QA report on the dashboard |
+| **Account Manager** | Post-launch handoff | `gemini-2.5-flash` | Drafts the launch email and a 30-day account plan; sends the email **via the agency-mcp `send_email` tool** (Resend) |
 
 ADK / protocol patterns used:
 - **Sequential pipeline** — Discovery → Strategy → Designer → Developer → PM → Account, driven by the Coordinator state machine.
 - **A2A handoffs** — every hop is an A2A task call; every agent publishes a spec-compliant Agent Card.
-- **MCP tool use** — PM calls a custom MCP server (`agency-mcp`) over stdio to post the client update to Slack.
+- **MCP tool use** — Account calls a custom MCP server (`agency-mcp`) over stdio (ADK `McpToolset`) to send the launch-day email through its `send_email` tool (Resend).
 - **Human-in-the-loop** — two explicit gates: strategy approval, and a launch-QA gate where the operator pastes the published Lovable URL before PM runs real Lighthouse QA.
 
 ---
@@ -161,7 +161,7 @@ ADK / protocol patterns used:
 | Memory | Memory Bank (Firestore-backed per-engagement context) |
 | Data | Firestore (multi-tenant engagements + logs) |
 | Observability | Cloud Trace (OpenTelemetry spans per agent) |
-| External | Lovable (Build-with-URL) · Slack (live, via agency-mcp) |
+| External | Lovable (Build-with-URL) · Email via Resend (live, through agency-mcp `send_email`) |
 | Frontend | Next.js 15 (App Router) · TypeScript · Tailwind · shadcn/ui · Clerk (auth) |
 
 ### Future work (not in this submission)
@@ -170,7 +170,7 @@ Designed for but intentionally **not** built for the hackathon, and cut from the
 
 - **Gemini Live voice intake** — Discovery's `run_voice_intake` is a stub (`NotImplementedError`); intake is via the web form/transcript today.
 - **Governance layer** — Agent Identity, Agent Gateway, Model Armor, threat detection.
-- **Wider MCP tools** — Shopify, Stripe, Linear, Figma tools exist as stubs; only Slack is live.
+- **Wider MCP tools** — Slack, Shopify, Stripe, Linear, Figma tools exist as stubs; only `send_email` is live.
 - **Analytics / evals** — Spanner cross-tenant analytics, BigQuery eval scores, an eval harness.
 - **GKE Agent Sandbox** for codegen isolation.
 
@@ -186,7 +186,7 @@ Detailed plan with weekly milestones → [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md
 | W1 (May 12–17) | Foundation + Discovery/Strategy/Developer agents · first real client live | One real Lovable-built site shipped through the Syndicate |
 | W2 (May 18–24) | All 6 agents wired · Memory Bank · A2A across the graph · dashboard UI · publish Medium post | 3+ engagements in flight · dashboard at a real URL |
 | W3 (May 25–31) | Production hardening: Simulation · Observability · Identity · Gateway · Model Armor · evals | Production-grade traces + sim report + governance config |
-| W4 (Jun 1–5) | Lovable launch gate · genuine MCP-to-Slack · A2A Agent Cards · honesty pass · demo + writeup | **Submit by Thu Jun 5, 5PM PT** |
+| W4 (Jun 1–11) | Lovable launch gate · genuine MCP email tool · A2A Agent Cards · honesty pass · demo + writeup | **Submit by Thu Jun 11, 5 PM PT** |
 
 ---
 

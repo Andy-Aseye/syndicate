@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ExpandableContent } from '@/components/ExpandableContent';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface Requirements {
   one_liner?: string | null;
@@ -18,9 +20,11 @@ interface Requirements {
 function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="rounded border border-white/10 bg-card p-4">
-      <p className="text-xs font-bold text-gold/60 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-sm text-white/90">{value}</p>
+    <div className="rounded-lg border border-white/10 bg-card p-3">
+      <p className="text-[10px] font-bold text-gold/60 uppercase tracking-wider mb-1">{label}</p>
+      <ExpandableContent maxHeight={80}>
+        <p className="text-xs text-white/90 leading-relaxed">{value}</p>
+      </ExpandableContent>
     </div>
   );
 }
@@ -28,13 +32,15 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 function ListField({ label, items }: { label: string; items?: string[] | null }) {
   if (!items || items.length === 0) return null;
   return (
-    <div className="rounded border border-white/10 bg-card p-4">
-      <p className="text-xs font-bold text-gold/60 uppercase tracking-wider mb-2">{label}</p>
-      <ul className="space-y-1 text-sm text-white/90">
-        {items.map((item) => (
-          <li key={item}>• {item}</li>
-        ))}
-      </ul>
+    <div className="rounded-lg border border-white/10 bg-card p-3">
+      <p className="text-[10px] font-bold text-gold/60 uppercase tracking-wider mb-1.5">{label}</p>
+      <ExpandableContent maxHeight={100}>
+        <ul className="space-y-1 text-xs text-white/90">
+          {items.map((item) => (
+            <li key={item}>• {item}</li>
+          ))}
+        </ul>
+      </ExpandableContent>
     </div>
   );
 }
@@ -76,19 +82,21 @@ export default function RequirementsPanel({ engagementId }: { engagementId: stri
   if (!requirements) return null;
 
   return (
-    <section className="mb-10">
-      <h2 className="text-sm font-bold text-gold uppercase tracking-wider mb-3">
-        Requirements <span className="text-muted normal-case font-normal">· extracted by Discovery</span>
-      </h2>
-
+    <CollapsibleSection
+      title="Requirements"
+      titleSuffix={
+        <span className="text-zinc-500 normal-case font-normal text-[10px]">· extracted by Discovery</span>
+      }
+      className="mb-8"
+    >
       {requirements.one_liner && (
-        <div className="rounded border border-cyan/30 bg-cyan/5 p-4 mb-3">
-          <p className="text-xs font-bold text-cyan/70 uppercase tracking-wider mb-1">One-liner</p>
-          <p className="text-sm text-white/90">{requirements.one_liner}</p>
+        <div className="rounded-lg border border-cyan/30 bg-cyan/5 p-3 mb-2">
+          <p className="text-[10px] font-bold text-cyan/70 uppercase tracking-wider mb-1">One-liner</p>
+          <p className="text-xs text-white/90">{requirements.one_liner}</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <Field label="Target audience" value={requirements.target_audience} />
         <Field label="Brand voice" value={requirements.brand_voice} />
         <Field label="Visual preferences" value={requirements.visual_preferences} />
@@ -99,6 +107,6 @@ export default function RequirementsPanel({ engagementId }: { engagementId: stri
         <ListField label="Nice-to-haves" items={requirements.nice_to_haves} />
         <ListField label="Open questions" items={requirements.open_questions} />
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
