@@ -19,30 +19,45 @@ const PHASE_PROGRESS: Record<string, number> = {
   awaiting_url: 65, review: 75, launch: 90, operate: 100, paused: 45, archived: 100,
 };
 
-export function EngagementCard({ engagement }: { engagement: Engagement }) {
+const PHASE_LABEL: Record<string, string> = {
+  intake: 'Discovery',
+  strategy: 'Strategy',
+  design: 'Design',
+  build: 'Building',
+  awaiting_url: 'Awaiting Live URL',
+  review: 'PM Review',
+  launch: 'Launch',
+  operate: 'Live',
+  paused: 'Needs Approval',
+  archived: 'Archived',
+};
+
+export function EngagementCard({
+  engagement,
+  variant = 'progress',
+}: {
+  engagement: Engagement;
+  variant?: 'progress' | 'simple';
+}) {
   const progress = PHASE_PROGRESS[engagement.phase] ?? 10;
   const colorClass = PHASE_COLOR[engagement.phase] ?? 'bg-white/10';
-
-  const phaseLabel = {
-    intake: 'Discovery',
-    strategy: 'Strategy',
-    design: 'Design',
-    build: 'Building',
-    awaiting_url: 'Awaiting Live URL',
-    review: 'PM Review',
-    launch: 'Launch',
-    operate: 'Live',
-    paused: 'Needs Approval',
-    archived: 'Archived',
-  }[engagement.phase] ?? engagement.phase;
+  const phaseLabel = PHASE_LABEL[engagement.phase] ?? engagement.phase;
 
   return (
     <Link
       href={`/engagements/${engagement.id}`}
       className="group flex flex-col p-4 rounded-xl border border-border bg-card hover:border-primary/50 transition-all shadow-sm relative overflow-hidden"
     >
-      <div className={`absolute top-0 left-0 w-full h-1 ${colorClass} ${engagement.phase === 'paused' ? 'animate-pulse' : 'opacity-80'}`} />
-      <div className="flex items-center justify-between mb-3">
+      {variant === 'progress' && (
+        <div
+          className={`absolute top-0 left-0 w-full h-1 ${colorClass} ${
+            engagement.phase === 'paused' ? 'animate-pulse' : 'opacity-80'
+          }`}
+        />
+      )}
+
+      {/* Phase row — always shown */}
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${colorClass}`} />
           <span className="text-[10px] font-bold uppercase tracking-wider text-muted/80">
@@ -56,28 +71,41 @@ export function EngagementCard({ engagement }: { engagement: Engagement }) {
           </span>
         ) : (
           <span className="text-xs text-muted/60 font-medium">
-            {new Date(engagement.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+            {new Date(engagement.updatedAt).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })}
           </span>
         )}
       </div>
-      
-      <h3 className="font-bold text-[15px] mb-1 text-white group-hover:text-primary transition-colors">
+
+      {/* Client name — always shown */}
+      <h3
+        className={`font-bold text-[15px] text-white group-hover:text-primary transition-colors ${
+          variant === 'progress' ? 'mb-1' : 'mb-0'
+        }`}
+      >
         {engagement.clientName}
       </h3>
-      
-      <p className="text-[13px] text-muted line-clamp-2 mb-4 leading-relaxed">
-        {engagement.brief || 'No brief yet — intake in progress.'}
-      </p>
 
-      {/* Progress Bar */}
-      <div className="w-full bg-surface rounded-full h-1.5 mb-4 overflow-hidden border border-border">
-        <div className={`h-1.5 rounded-full ${colorClass}`} style={{ width: `${progress}%` }} />
-      </div>
-
-      <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/50 text-muted/60">
-        <span className="text-xs font-medium">{phaseLabel}</span>
-        <span className="text-xs tabular-nums">{progress}%</span>
-      </div>
+      {/* Progress-only elements */}
+      {variant === 'progress' && (
+        <>
+          <p className="text-[13px] text-muted line-clamp-2 mb-4 leading-relaxed">
+            {engagement.brief || 'No brief yet — intake in progress.'}
+          </p>
+          <div className="w-full bg-surface rounded-full h-1.5 mb-4 overflow-hidden border border-border">
+            <div
+              className={`h-1.5 rounded-full ${colorClass}`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/50 text-muted/60">
+            <span className="text-xs font-medium">{phaseLabel}</span>
+            <span className="text-xs tabular-nums">{progress}%</span>
+          </div>
+        </>
+      )}
     </Link>
   );
 }

@@ -31,6 +31,20 @@ export interface Engagement {
   _triggerError?: boolean;
 }
 
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  agent: string;
+  message: string;
+}
+
+export interface EnrichedActivityLog extends ActivityLog {
+  engagementId: string;
+  clientName: string;
+  clientCompany?: string;
+  phase: EngagementPhase;
+}
+
 let initialized = false;
 
 function db() {
@@ -93,4 +107,31 @@ export async function setTriggerError(id: string, value: boolean): Promise<void>
     _triggerError: value,
     updatedAt: new Date().toISOString(),
   });
+}
+
+async function listLogsForEngagement(engagementId: string): Promise<ActivityLog[]> {
+  const snapshot = await db()
+    .collection('engagements')
+    .doc(engagementId)
+    .collection('logs')
+    .orderBy('timestamp', 'asc')
+    .get();
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ActivityLog);
+}
+
+export async function listAllLogs(tenantId: string): Promise<EnrichedActivityLog[]> {
+  const engagements = await listEngagements(tenantId);
+  const results = await Promise.all(
+    engagements.map(async (eng) => {
+      const logs = await listLogsForEngagement(eng.id);
+      return logs.map((log): EnrichedActivityLog => ({
+        ...log,
+        engagementId: eng.id,
+        clientName: eng.clientName,
+        clientCompany: eng.clientCompany,
+        phase: eng.phase,
+      }));
+    })
+  );
+  return results.flat().sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
