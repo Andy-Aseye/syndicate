@@ -50,9 +50,8 @@ export function EngagementCard({
     >
       {variant === 'progress' && (
         <div
-          className={`absolute top-0 left-0 w-full h-1 ${colorClass} ${
-            engagement.phase === 'paused' ? 'animate-pulse' : 'opacity-80'
-          }`}
+          className={`absolute top-0 left-0 w-full h-1 ${colorClass} ${engagement.phase === 'paused' ? 'animate-pulse' : 'opacity-80'
+            }`}
         />
       )}
 
@@ -81,9 +80,8 @@ export function EngagementCard({
 
       {/* Client name — always shown */}
       <h3
-        className={`font-bold text-[15px] text-white group-hover:text-primary transition-colors ${
-          variant === 'progress' ? 'mb-1' : 'mb-0'
-        }`}
+        className={`font-bold text-[15px] text-white group-hover:text-primary transition-colors ${variant === 'progress' ? 'mb-1' : 'mb-0'
+          }`}
       >
         {engagement.clientName}
       </h3>

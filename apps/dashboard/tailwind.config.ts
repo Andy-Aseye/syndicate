@@ -7,12 +7,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: '#141416', // Deepest background (sidebars)
-        surface: '#1c1c1e', // Main content background
-        card: '#242426', // Engagement cards
-        primary: '#765EEA', // Purple accent
-        muted: '#8e8e93', // Muted text
-        border: '#333336', // Subtle borders
+        bg: '#141416',
+        surface: '#1c1c1e',
+        card: '#242426',
+        primary: '#765EEA',
+        muted: '#8e8e93',
+        border: '#333336',
+        cyan: '#22d3ee',
+        gold: '#d4a017',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

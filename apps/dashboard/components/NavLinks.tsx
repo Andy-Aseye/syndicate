@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Home, Briefcase, Users, Activity, Settings } from 'lucide-react';
+import { Home, Briefcase, Users2, Activity, Settings } from 'lucide-react';
 
 interface NavLinksProps {
   engagementCount: number;
@@ -11,7 +11,7 @@ interface NavLinksProps {
 const mainNav = [
   { href: '/', icon: Home, label: 'Home', exact: true },
   { href: '/engagements', icon: Briefcase, label: 'Engagements' },
-  { href: '/clients', icon: Users, label: 'Clients' },
+  { href: '/clients', icon: Users2, label: 'Clients' },
   { href: '/activity', icon: Activity, label: 'Activity' },
 ];
 
@@ -30,11 +30,10 @@ export function NavLinks({ engagementCount }: NavLinksProps) {
           <Link
             key={href}
             href={href}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-              isActive(href, exact)
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive(href, exact)
                 ? 'bg-white/10 text-white shadow-sm'
                 : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-            }`}
+              }`}
           >
             <Icon className="w-[18px] h-[18px] shrink-0" />
             <span className="text-sm font-medium">{label}</span>
@@ -50,11 +49,10 @@ export function NavLinks({ engagementCount }: NavLinksProps) {
       <div className="space-y-1 pt-4 border-t border-white/5">
         <Link
           href="/settings"
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-            isActive('/settings')
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')
               ? 'bg-white/10 text-white shadow-sm'
               : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-          }`}
+            }`}
         >
           <Settings className="w-[18px] h-[18px] shrink-0" />
           <span className="text-sm font-medium">Settings</span>
