@@ -18,20 +18,52 @@ export default function ApprovalBanner({ engagementId, phase }: { engagementId: 
   const [isPending, startTransition] = useTransition();
   const [adjustments, setAdjustments] = useState('');
   const [strategy, setStrategy] = useState<Plan | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (phase !== 'paused') return;
-    fetch(`/api/engagements/${engagementId}/strategy`)
-      .then(r => r.json())
-      .then(d => { if (d.strategy) setStrategy(d.strategy); })
-      .catch(() => {});
+    let stopped = false;
+    let found = false;
+
+    const fetchStrategy = async () => {
+      try {
+        const r = await fetch(`/api/engagements/${engagementId}/strategy`);
+        const d = await r.json();
+        if (!stopped && d.strategy?.positioning) {
+          setStrategy(d.strategy);
+          found = true;
+        }
+      } catch {}
+    };
+
+    // Poll until the plan snapshot lands (the phase can flip to 'paused' a
+    // beat before _strategyOutput is written), then stop.
+    fetchStrategy();
+    const interval = setInterval(() => {
+      if (found) {
+        clearInterval(interval);
+        return;
+      }
+      fetchStrategy();
+    }, 4000);
+    const timeout = setTimeout(() => clearInterval(interval), 120_000);
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [engagementId, phase]);
 
   if (phase !== 'paused') return null;
 
   const handleApprove = () => {
+    setError(null);
     startTransition(async () => {
-      await approveEngagementAction(engagementId, adjustments);
+      const result = await approveEngagementAction(engagementId, adjustments);
+      if (!result.ok) {
+        setError(result.error ?? 'Approval failed — please retry.');
+      }
     });
   };
 
@@ -125,6 +157,12 @@ export default function ApprovalBanner({ engagementId, phase }: { engagementId: 
         onChange={(e) => setAdjustments(e.target.value)}
         disabled={isPending}
       />
+
+      {error && (
+        <p className="mb-3 text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+          {error}
+        </p>
+      )}
 
       <button
         onClick={handleApprove}

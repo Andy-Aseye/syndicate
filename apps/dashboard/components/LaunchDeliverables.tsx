@@ -32,7 +32,7 @@ function EmailStatusPill({ status, to }: { status?: string | null; to?: string |
   }
   if (status === 'simulated') {
     return (
-      <span className="px-2 py-0.5 rounded-full border border-cyan/40 bg-cyan/10 text-cyan text-[10px] font-bold uppercase tracking-wider">
+      <span className="px-2 py-0.5 rounded-full border border-green-500/40 bg-green-500/10 text-green-500 text-[10px] font-bold uppercase tracking-wider">
         Simulated (no key)
       </span>
     );
@@ -85,7 +85,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
           setTimeout(() => setCopied(false), 2000);
         });
       }}
-      className="text-[11px] font-bold uppercase tracking-wider text-cyan hover:text-cyan/80"
+      className="text-[11px] font-bold uppercase tracking-wider text-green-500 hover:text-green-500/80"
     >
       {copied ? 'Copied' : label}
     </button>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -19,9 +20,20 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
+    const { userId, orgId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ phase: 'intake', logs: [], error: 'unauthenticated' }, { status: 401 });
+    }
+    const tenantId = orgId ?? userId;
+
     ensureInit();
     const db = getFirestore();
     const doc = await db.collection('engagements').doc(id).get();
+
+    // Tenant isolation: respond as "not found" for other tenants' engagements.
+    if (!doc.exists || doc.data()?.tenantId !== tenantId) {
+      return NextResponse.json({ phase: 'intake', logs: [] }, { status: 404 });
+    }
 
     const snapshot = await db.collection('engagements')
       .doc(id)
@@ -33,10 +45,6 @@ export async function GET(
       id: doc.id,
       ...doc.data(),
     }));
-
-    if (!doc.exists) {
-      return NextResponse.json({ phase: 'intake', logs });
-    }
 
     const data = doc.data() || {};
     return NextResponse.json({ 

@@ -63,20 +63,49 @@ def _assemble_lovable_prompt(plan: dict[str, Any], design: dict[str, Any]) -> st
     if visual:
         parts.append(f"\n## Visual Direction\n{visual}")
 
-    # Designer's design tokens (if available)
+    # Designer's design tokens (if available). Field names match DesignSpec in
+    # agents/designer/agent.py; legacy keys kept as fallbacks.
     if design:
         design_section = []
-        palette = design.get("palette") or design.get("color_palette")
+        palette_parts = [
+            design.get("primary_color"),
+            design.get("secondary_color"),
+            design.get("accent_color"),
+        ]
+        palette = (
+            ", ".join(p for p in palette_parts if p)
+            or design.get("palette")
+            or design.get("color_palette")
+        )
         if palette:
             design_section.append(f"Color palette: {palette}")
-        typography = design.get("typography") or design.get("type_scale")
+        font_heading = design.get("font_heading", "")
+        font_body = design.get("font_body", "")
+        typography = (
+            f"Headings: {font_heading}; Body: {font_body}"
+            if (font_heading or font_body)
+            else design.get("typography") or design.get("type_scale")
+        )
         if typography:
             design_section.append(f"Typography: {typography}")
-        style = design.get("style") or design.get("visual_style")
+        style = (
+            design.get("visual_mood")
+            or design.get("style")
+            or design.get("visual_style")
+        )
         if style:
             design_section.append(f"Style: {style}")
+        layout = design.get("layout_description", "")
+        if layout:
+            design_section.append(f"Layout: {layout}")
         if design_section:
             parts.append("\n## Design Tokens\n" + "\n".join(design_section))
+
+        # The Designer's focused design brief, written specifically to be
+        # appended to the Lovable build prompt.
+        addendum = design.get("lovable_design_addendum", "")
+        if addendum:
+            parts.append(f"\n## Design Brief\n{addendum}")
 
     # Human adjustments (if any)
     adjustments = plan.get("context", {})

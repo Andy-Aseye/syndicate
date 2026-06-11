@@ -1,0 +1,10 @@
+# Mirror .gitignore for Cloud Build uploads, but keep .env.production:
+# the dashboard Dockerfile COPYs it into the runtime image. It is no longer
+# tracked in git (secrets), yet must still be uploaded with the build source.
+# TODO(post-hackathon): move these values to Cloud Run env vars / Secret
+# Manager and drop the COPY + this exception.
+#!include:.gitignore
+!.env.production
+!apps/dashboard/.env.production
+.git
+.gitignore

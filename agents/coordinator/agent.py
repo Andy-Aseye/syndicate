@@ -407,6 +407,30 @@ async def approve_engagement(engagement_id: str, request: ApprovalRequest):
     if not request.approved:
         return {"status": "rejected"}
     assert service is not None
+    doc_ref = service.db.collection("engagements").document(engagement_id)
+    snapshot = await doc_ref.get()
+    if not snapshot.exists:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": "engagement not found"},
+        )
+    # Phase guard: approval is only meaningful while paused at the strategy
+    # gate (PAUSED is also where we land after a failed build, so retry works).
+    # Blocks double-clicks from kicking off a second concurrent build.
+    phase = (snapshot.to_dict() or {}).get("phase", "")
+    if phase != EngagementPhase.PAUSED.value:
+        log.warning(
+            "coordinator.approval.wrong_phase",
+            engagement_id=engagement_id,
+            phase=phase,
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "message": f"engagement is in phase '{phase}', not awaiting approval",
+            },
+        )
     asyncio.create_task(service._run_build(engagement_id, request.adjustments))
     log.info("coordinator.approval.received", engagement_id=engagement_id)
     return {"status": "ok"}
@@ -431,6 +455,23 @@ async def submit_live_url(engagement_id: str, request: LiveUrlRequest):
         return JSONResponse(
             status_code=404,
             content={"status": "error", "message": "engagement not found"},
+        )
+    # Phase guard: a live URL is only expected while the build is in flight or
+    # awaiting the pasted URL. Once the launch tail (REVIEW → LAUNCH → OPERATE)
+    # starts, a second submission would run PM/Account twice.
+    phase = (snapshot.to_dict() or {}).get("phase", "")
+    if phase not in (EngagementPhase.BUILD.value, EngagementPhase.AWAITING_URL.value):
+        log.warning(
+            "coordinator.live_url.wrong_phase",
+            engagement_id=engagement_id,
+            phase=phase,
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "message": f"engagement is in phase '{phase}', not awaiting a live URL",
+            },
         )
     try:
         await doc_ref.update({

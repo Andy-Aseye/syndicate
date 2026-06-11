@@ -86,34 +86,87 @@ export async function retryKickoffAction(engagementId: string): Promise<{ ok: bo
 
 import { revalidatePath } from 'next/cache';
 
-export async function approveEngagementAction(engagementId: string, adjustments: string = "") {
+export interface ActionResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** Verify the caller is signed in and owns this engagement. */
+async function authorizeEngagement(engagementId: string): Promise<ActionResult> {
+  const { userId, orgId } = await auth();
+  if (!userId) return { ok: false, error: 'You must be signed in.' };
+  const tenantId = orgId ?? userId;
+  const engagement = await getEngagement(tenantId, engagementId);
+  if (!engagement) return { ok: false, error: 'Engagement not found.' };
+  return { ok: true };
+}
+
+export async function approveEngagementAction(
+  engagementId: string,
+  adjustments: string = ''
+): Promise<ActionResult> {
+  const authz = await authorizeEngagement(engagementId);
+  if (!authz.ok) return authz;
+
   try {
     const payload = {
       approved: true,
-      adjustments: { instructions: adjustments }
+      adjustments: { instructions: adjustments },
     };
-    await fetch(`${process.env.ATLAS_COORDINATOR_URL}/api/engagements/${engagementId}/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      `${process.env.ATLAS_COORDINATOR_URL}/api/engagements/${engagementId}/approve`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('Approve failed with status:', res.status, body);
+      return {
+        ok: false,
+        error: body?.message || `The Coordinator rejected the approval (HTTP ${res.status}).`,
+      };
+    }
     // Revalidate the page so it pulls the latest 'build' phase from Firestore
     revalidatePath(`/engagements/${engagementId}`);
+    return { ok: true };
   } catch (err) {
     console.error('Failed to approve engagement:', err);
+    return { ok: false, error: 'Could not reach the Coordinator — please retry.' };
   }
 }
 
-export async function submitLiveUrlAction(engagementId: string, liveUrl: string) {
+export async function submitLiveUrlAction(
+  engagementId: string,
+  liveUrl: string
+): Promise<ActionResult> {
+  const authz = await authorizeEngagement(engagementId);
+  if (!authz.ok) return authz;
+
   try {
-    await fetch(`${process.env.ATLAS_COORDINATOR_URL}/api/engagements/${engagementId}/live-url`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ live_url: liveUrl }),
-    });
+    const res = await fetch(
+      `${process.env.ATLAS_COORDINATOR_URL}/api/engagements/${engagementId}/live-url`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ live_url: liveUrl }),
+      }
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('Live URL submit failed with status:', res.status, body);
+      return {
+        ok: false,
+        error: body?.message || `The Coordinator rejected the URL (HTTP ${res.status}).`,
+      };
+    }
     // Revalidate so the page pulls the latest 'review' phase from Firestore
     revalidatePath(`/engagements/${engagementId}`);
+    return { ok: true };
   } catch (err) {
     console.error('Failed to submit live URL:', err);
+    return { ok: false, error: 'Could not reach the Coordinator — please retry.' };
   }
 }

@@ -47,6 +47,23 @@ class _RunResult:
         self.output = output
 
 
+def _strip_json_fences(text: str) -> str:
+    """Remove a surrounding markdown code fence (```json ... ```) if present.
+
+    Models sometimes wrap structured output in fences even when asked for raw
+    JSON; json.loads then fails and the agent reports "no structured output".
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    # Drop the opening fence line (``` or ```json) and a trailing ``` line.
+    lines = stripped.splitlines()
+    lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 async def run_agent(agent, prompt: str):
     """Run an ADK agent with a simple text prompt and return a _RunResult."""
     session_svc = InMemorySessionService()
@@ -85,7 +102,7 @@ async def run_agent(agent, prompt: str):
         schema = getattr(agent, "output_schema", None)
         if schema is not None:
             try:
-                data = json.loads(last_text)
+                data = json.loads(_strip_json_fences(last_text))
                 output = schema.model_validate(data)
             except (json.JSONDecodeError, Exception) as exc:
                 _polyfill_log.warning(
